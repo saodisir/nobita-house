@@ -1,0 +1,42 @@
+{
+  "name": "nobita-house-3d",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "preview": "vite preview",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "gen:refs": "bun scripts/gen-ref-images.mjs",
+    "assets:build": "bun scripts/build-assets.mjs",
+    "editor:textures": "python3 scripts/editor-textures.py"
+  },
+  "dependencies": {
+    "@react-three/drei": "^10.7.8",
+    "@react-three/fiber": "^9.7.0",
+    "@react-three/postprocessing": "^3.2.2",
+    "camera-controls": "^3.1.2",
+    "motion": "^13.2.0",
+    "n8ao": "^2.0.1",
+    "react": "~19.2.0",
+    "react-dom": "~19.2.0",
+    "three": "^0.186.0",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.12",
+    "@gltf-transform/cli": "^4.5.0",
+    "@google/genai": "^2.21.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.185.4",
+    "@vitejs/plugin-react": "^6.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.0.0"
+  }
+}

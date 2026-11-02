@@ -1,0 +1,47 @@
+# deps
+node_modules/
+.pnp/
+.pnp.js
+
+# build
+dist/
+dist-ssr/
+*.local
+
+# vite / tooling caches
+.vite/
+node_modules/.vite/
+.tsbuildinfo
+*.tsbuildinfo
+
+# env
+.env
+.env.*
+!.env.example
+
+# raw Rodin exports — large, unoptimized, not shipped.
+# Optimized output lives in public/models/ and IS committed.
+assets/raw/**
+!assets/raw/.gitkeep
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-error.log*
+
+# test output
+coverage/
+playwright-report/
+test-results/
+.vercel
+
+# plans
+plans/

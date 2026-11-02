@@ -1,0 +1,37 @@
+/* Paper + ink chrome over the 3D scene; one Doraemon-blue accent. From docs/design-guidelines.md §3. */
+:root {
+  --paper-100: #fffcf6;
+  --paper-200: #f7f1e6;
+  --paper-300: #ede4d4;
+  --paper-400: #e0d3bc;
+  --ink-900: #2a241e;
+  --ink-700: #4e453b;
+  --ink-500: #6f6355;
+  --line: #dbceb9;
+  --line-strong: #c7b69b;
+  --accent-700: #084a96;
+  --accent-600: #0b63c5;
+  --accent-400: #4fa8f7;
+  --accent-soft: rgba(11, 99, 197, 0.1);
+  --scrim: rgba(42, 36, 30, 0.46);
+  --halo: #fff;
+  --perf-good: #2f9e5a;
+  --perf-fair: #d69a12;
+  --perf-poor: #cf3b2e;
+  --panel-bg: rgba(247, 241, 230, 0.92);
+  --panel-blur: saturate(1.1) blur(10px);
+  --sh-1: 0 1px 2px rgba(42, 36, 30, 0.1), 0 2px 8px rgba(42, 36, 30, 0.08);
+  --sh-2: 0 2px 6px rgba(42, 36, 30, 0.12), 0 14px 30px rgba(42, 36, 30, 0.18);
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-pill: 999px;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-ui: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
+  --font-jp: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Noto Sans JP", sans-serif;
+  --e-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --e-in: cubic-bezier(0.4, 0, 1, 1);
+  --d-hover: 120ms;
+  --d-panel-in: 280ms;
+  --d-panel-out: 180ms;
+}

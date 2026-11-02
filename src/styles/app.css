@@ -1,0 +1,1072 @@
+@import "./tokens.css";
+
+* {
+  box-sizing: border-box;
+}
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: var(--font-ui);
+  color: var(--ink-900);
+  background: #bfe0fa;
+}
+canvas {
+  touch-action: none;
+  display: block;
+}
+button {
+  font: inherit;
+  color: inherit;
+}
+:focus-visible {
+  outline: 2px solid var(--accent-600);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--halo);
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* UI root never blocks the canvas; leaf panels re-enable pointer events. */
+#ui-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+.panel {
+  pointer-events: auto;
+  background: var(--panel-bg);
+  backdrop-filter: var(--panel-blur);
+  -webkit-backdrop-filter: var(--panel-blur);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--sh-1);
+}
+
+/* Layer holding every main-page menu, so one toggle can fade them together. Same box as #ui-root,
+   so the panels inside keep their positions. */
+.menus {
+  position: absolute;
+  inset: 0;
+}
+/* Free corner on desktop: bottom-right (roster is bottom-left, toolbar top-right). */
+.menus-toggle {
+  position: absolute;
+  right: 16px;
+  bottom: 44px;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    color var(--d-hover);
+}
+.menus-toggle:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+
+/* Title card with the performance panel stacked under it. */
+.top-left {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.title {
+  padding: 10px 14px;
+}
+
+.perf {
+  padding: 8px 14px 10px;
+  font:
+    12px / 1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-700);
+}
+.perf__fps {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 4px;
+  font-weight: 600;
+  color: var(--ink-500);
+}
+.perf__fps b {
+  font-size: 18px;
+  color: var(--ink-900);
+}
+.perf__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+.perf__fps[data-tier="good"] .perf__dot {
+  background: var(--perf-good);
+}
+.perf__fps[data-tier="fair"] .perf__dot {
+  background: var(--perf-fair);
+}
+.perf__fps[data-tier="poor"] .perf__dot {
+  background: var(--perf-poor);
+}
+.perf__grid {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 14px;
+  margin: 0;
+}
+.perf__grid div {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.perf__grid dt {
+  color: var(--ink-500);
+}
+.perf__grid dd {
+  margin: 0;
+  color: var(--ink-900);
+}
+.title h1 {
+  margin: 0;
+  font: 600 22px / 1.15 var(--font-display);
+  font-variation-settings:
+    "SOFT" 100,
+    "WONK" 1;
+}
+.title p {
+  margin: 2px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+/* Inside the house the strapline gives way to the room you are standing in. That is where
+   "where am I" belongs — in the toolbar it used to stretch the whole menu. */
+.title .title__place {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink-700);
+}
+.title__jp {
+  font-family: var(--font-jp);
+  font-weight: 400;
+  color: var(--ink-500);
+}
+
+/* Where in the room to stand: the room's corners and doorway, one pressed chip. The chips of
+   the toolbar, smaller, since they sit under the room's name. */
+.title__views {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  max-width: 240px;
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
+}
+.title__views legend {
+  width: 100%;
+  margin-bottom: 2px;
+  padding: 0;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+.title__views button {
+  border: 0;
+  border-radius: var(--r-pill);
+  padding: 4px 8px;
+  background: transparent;
+  font-size: 12px;
+  color: var(--ink-700);
+  cursor: pointer;
+}
+.title__views button:hover {
+  background: var(--paper-300);
+}
+.title__views button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-600);
+  font-weight: 700;
+}
+@media (forced-colors: active) {
+  .title__views button[aria-pressed="true"] {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+}
+
+/* One menu, three weights: the place control, the look-and-feel groups, and a settings button
+   for everything else. Flattening all of it into one row of equal buttons is what made the old
+   bar 866px wide with nothing to read first. */
+.controls {
+  position: absolute;
+  /* Above the info card, which comes later in the DOM: the volume popover hangs over it. */
+  z-index: 1;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+}
+.controls button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  padding: 8px 12px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    color var(--d-hover);
+}
+.controls button:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+.controls button[aria-pressed="true"],
+.controls button[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-600);
+}
+.controls__group {
+  display: flex;
+  gap: 2px;
+}
+/* The tour stepper is a fieldset for the group semantics; its own chrome is reset like the
+   segmented control's. */
+.tour {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+}
+.controls button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.controls button:disabled:hover {
+  background: transparent;
+  color: var(--ink-700);
+}
+.tour__label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 72px;
+  padding: 0 6px;
+  line-height: 1.25;
+}
+.tour__stop {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.tour__count {
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-500);
+}
+/* A radio group drawn as one control: place and time of day. The fieldset's own chrome is reset;
+   the labels are the segments. */
+.controls__segmented {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.controls__segmented label {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 11px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-700);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    color var(--d-hover);
+}
+.controls__segmented label:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+/* The input stays in the layout (not display:none) so it keeps focus and arrow-key behaviour. */
+.controls__segmented input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.controls__segmented input:checked + span {
+  color: var(--accent-600);
+  font-weight: 700;
+}
+.controls__segmented label:has(input:focus-visible) {
+  outline: 2px solid var(--accent-600);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--halo);
+}
+.controls__segment {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Where you are: the toolbar's headline, and a dropdown rather than a segmented control because
+   the house has six rooms and counting — seven segments would be as wide as the bar it replaced. */
+.place {
+  /* Not a containing block, so the menu below hangs off the toolbar and lines up with its edge. */
+  position: static;
+}
+.controls .place__trigger {
+  padding-left: 10px;
+  padding-right: 8px;
+  font-weight: 600;
+  color: var(--ink-900);
+}
+.place__current {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.place__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 2;
+  min-width: 232px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px;
+  transform-origin: top left;
+  /* Inside the toolbar's own backdrop filter a second blur has nothing to sample, so it is solid. */
+  background: var(--paper-200);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: var(--sh-2);
+}
+.place__heading {
+  margin: 6px 10px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+.controls .place__item {
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  padding: 0 10px;
+  text-align: left;
+}
+.controls .place__item[aria-current="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-600);
+  font-weight: 700;
+}
+.place__jp {
+  font-family: var(--font-jp);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ink-500);
+}
+/* The checked fill is a separate element so motion can slide it between chips; it sits under the
+   text inside the label's own stacking context. */
+.controls__chip {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--accent-soft);
+}
+/* Forced-colors overrides the accent background, so selection needs a non-colour cue. */
+@media (forced-colors: active) {
+  .controls__segmented label:has(input:checked) {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+}
+.controls__divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 4px;
+  background: var(--line);
+}
+.controls svg {
+  flex-shrink: 0;
+}
+
+.sound {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.sound button {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+/* Volume popover. It is positioned against the toolbar (the sound group is not a containing
+   block), so it lines up with the toolbar's right end: below it here, above the phone bar.
+   Inside the toolbar's own backdrop filter a second blur has nothing to sample, so it is solid. */
+.sound__popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  padding: 10px 14px;
+  transform-origin: top right;
+  background: var(--paper-200);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.volume-slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.volume-slider label {
+  font-weight: 600;
+  color: var(--ink-700);
+}
+.volume-slider input {
+  width: 140px;
+  margin: 0;
+  accent-color: var(--accent-600);
+  cursor: pointer;
+}
+.volume-slider output {
+  min-width: 4ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-500);
+}
+
+/* --- Settings ---------------------------------------------------------------------- */
+
+/* Everything the toolbar deliberately does not show. Hangs off the settings button: a popover
+   under the toolbar here, a sheet above the bottom bar on phones (see the <768px block). */
+.settings {
+  position: absolute;
+  z-index: 2;
+  top: 72px;
+  right: 16px;
+  width: 256px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  box-shadow: var(--sh-2);
+}
+.settings__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-700);
+  text-align: left;
+}
+button.settings__row {
+  cursor: pointer;
+  transition: background var(--d-hover);
+}
+button.settings__row:hover,
+.settings__link:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+.settings__row .volume-slider {
+  flex: 1;
+}
+.settings__row .volume-slider input {
+  flex: 1;
+  width: auto;
+}
+/* Time of day drops in here on phones; its segments keep their toolbar sizing, so the row loses
+   its own right padding rather than squeezing them. */
+.settings__row .controls__segmented {
+  margin-right: -6px;
+}
+.settings__link {
+  justify-content: flex-start;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--accent-600);
+  text-decoration: none;
+}
+.settings__link .controls__arrow {
+  margin-left: auto;
+}
+.settings__switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 36px;
+  height: 20px;
+  border-radius: var(--r-pill);
+  background: var(--line-strong);
+  transition: background var(--d-hover);
+}
+.settings__switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--paper-100);
+  box-shadow: var(--sh-1);
+  transition: transform var(--d-hover) var(--e-out);
+}
+[aria-checked="true"] > .settings__switch {
+  background: var(--accent-600);
+}
+[aria-checked="true"] > .settings__switch::after {
+  transform: translateX(16px);
+}
+/* Forced colours drop the switch's fills, so give it an outline and a solid knob. */
+@media (forced-colors: active) {
+  .settings__switch {
+    outline: 1px solid CanvasText;
+  }
+  .settings__switch::after {
+    background: CanvasText;
+  }
+}
+
+.roster {
+  position: absolute;
+  left: 16px;
+  bottom: 44px;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+}
+.roster button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 8px 12px 8px 8px;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition: background var(--d-hover);
+}
+.roster button:hover {
+  background: var(--paper-300);
+}
+.roster button[aria-current="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-600);
+  font-weight: 700;
+}
+.roster .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px rgba(42, 36, 30, 0.18);
+}
+
+/* --- Nobita's room ---------------------------------------------------------------- */
+
+/* Pins are positioned by transform from the projected anchor, so the layer itself covers the
+   viewport and never intercepts anything: only the buttons do. */
+.room-pins {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.room-pin {
+  position: absolute;
+  top: 0;
+  left: 0;
+  /* 44px of touch target around a 22px disc, the same trade the design guidelines make for
+     every other primary control. */
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: opacity var(--d-hover);
+}
+.room-pin__disc {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--paper-100, #fffcf6);
+  box-shadow:
+    0 0 0 2px var(--accent-600),
+    0 2px 8px rgba(42, 36, 30, 0.35);
+}
+.room-pin:hover .room-pin__disc,
+.room-pin[aria-pressed="true"] .room-pin__disc {
+  background: var(--accent-600);
+  box-shadow:
+    0 0 0 3px var(--paper-100, #fffcf6),
+    0 2px 10px rgba(42, 36, 30, 0.4);
+}
+/* Behind the room's own geometry: still in the DOM so nothing reflows, but out of reach. */
+.room-pin[data-ghost] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.card {
+  position: absolute;
+  right: 16px;
+  top: 76px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  /* Stops above the bottom-right menus toggle on short windows and scrolls instead. */
+  max-height: calc(100dvh - 76px - 96px);
+  overflow-y: auto;
+  padding: 20px 22px 22px;
+  box-shadow: var(--sh-2);
+  animation: card-in var(--d-panel-in) var(--e-out) both;
+}
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.card .eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent-600);
+  margin: 0 0 6px;
+}
+.card h2 {
+  margin: 0;
+  font: 600 24px / 1.22 var(--font-display);
+  font-variation-settings:
+    "SOFT" 100,
+    "WONK" 1;
+}
+.card .jp {
+  font-family: var(--font-jp);
+  font-size: 12px;
+  color: var(--ink-500);
+  margin: 2px 0 12px;
+}
+.card p.body {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.62;
+  color: var(--ink-700);
+  max-width: 62ch;
+}
+.card .close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--r-md);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ink-700);
+}
+.card .close:hover {
+  background: var(--paper-300);
+}
+
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 40%, #fffcf6, #ede4d4);
+  transition: opacity 500ms var(--e-in);
+}
+.veil[data-done="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+.veil .plate {
+  width: min(420px, 90vw);
+  padding: 36px 32px 28px;
+  background: var(--paper-100);
+  border: 1px solid var(--line);
+  outline: 3px dashed var(--line-strong);
+  outline-offset: 6px;
+  text-align: center;
+}
+.veil h1 {
+  margin: 0 0 6px;
+  font: 600 34px / 1.12 var(--font-display);
+  font-variation-settings:
+    "SOFT" 100,
+    "WONK" 1;
+}
+.veil .sub {
+  margin: 0 0 24px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+.veil .track {
+  height: 3px;
+  background: var(--paper-300);
+  overflow: hidden;
+}
+.veil .fill {
+  height: 100%;
+  background: var(--accent-600);
+  transition: width 200ms linear;
+}
+.veil .meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  font:
+    12px / 1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-500);
+}
+
+/* Narrowest desktop band: tighten the toolbar so it stays clear of the title card. Only the place
+   segments carry text now, so there is far less to give back than the old labelled bar had. */
+@media (min-width: 768px) and (max-width: 899px) {
+  .controls button,
+  .controls__segmented label {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .controls__divider {
+    margin-left: 2px;
+    margin-right: 2px;
+  }
+}
+
+@media (max-width: 767px) {
+  .top-left {
+    top: 12px;
+    left: 12px;
+  }
+  /* Bottom bar: the place control spreads across it and the sound and settings buttons take the
+     end. Time of day moves into the sheet (the swap lives in `ViewControls`), which is what keeps
+     the bar on screen without scrolling — nothing hides off the edge, and the popover isn't clipped. */
+  .controls {
+    top: auto;
+    bottom: 12px;
+    left: 12px;
+    right: 12px;
+    gap: 2px;
+  }
+  .place {
+    flex: 1;
+    min-width: 0;
+  }
+  .controls .place__trigger {
+    flex: 1;
+    justify-content: flex-start;
+    padding: 0 8px;
+  }
+  /* Opens upward here: the toolbar is the bottom bar. */
+  .place__menu {
+    top: auto;
+    bottom: calc(100% + 8px);
+    right: 0;
+    transform-origin: bottom left;
+  }
+  .controls button {
+    min-width: 40px;
+    height: 40px;
+    padding: 0;
+  }
+  .controls__segmented label {
+    height: 40px;
+  }
+  .controls__divider {
+    margin: 4px 1px;
+  }
+  .sound__popover {
+    top: auto;
+    bottom: calc(100% + 8px);
+    transform-origin: bottom right;
+  }
+  /* The stepper shrinks to icons + counter on phones; the room name is already in the title. */
+  .tour__stop {
+    display: none;
+  }
+  .tour__label {
+    min-width: 0;
+    padding: 0 2px;
+  }
+  /* The toolbar is the bottom bar here, which frees the top-right corner for the menus toggle. */
+  .menus-toggle {
+    top: 12px;
+    right: 12px;
+    bottom: auto;
+  }
+  .roster {
+    left: 12px;
+    right: 12px;
+    bottom: 74px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  /* Floats above the bottom bar (54px tall + 12px inset + 8px gap) so the bar stays usable. */
+  .card {
+    top: auto;
+    bottom: 74px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    max-width: none;
+    max-height: min(62vh, calc(100dvh - 74px - 64px));
+    overflow-y: auto;
+    animation-name: sheet-in;
+  }
+  /* Settings sheet: same spot as the card, over it if both are open, and thumb-sized rows. */
+  .settings {
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: 74px;
+    width: auto;
+  }
+  .settings__row {
+    min-height: 44px;
+    font-size: 14px;
+  }
+}
+/* The narrowest phones (320px): 34px controls keep the whole bar on screen. */
+@media (max-width: 359px) {
+  .controls button {
+    min-width: 34px;
+    height: 34px;
+  }
+  .controls__segmented label {
+    height: 34px;
+    font-size: 12px;
+  }
+  .controls .place__trigger {
+    font-size: 12px;
+    padding: 0 6px;
+  }
+}
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation-duration: 1ms;
+  }
+  .veil {
+    transition-duration: 120ms;
+  }
+}
+
+/* Walking: a pill at the bottom that names the five keys, in the order they are reached for.
+   It is chrome over the render, so it never takes the pointer — a click has to reach the canvas
+   to lock the mouse. */
+.walk-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  gap: 14px;
+  padding: 8px 16px;
+  border-radius: var(--r-pill);
+  background: var(--scrim);
+  color: var(--paper-100);
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  backdrop-filter: var(--panel-blur);
+  box-shadow: var(--sh-2);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.walk-hint b {
+  font-weight: 700;
+  color: #fff;
+}
+@media (max-width: 767px) {
+  .walk-hint {
+    gap: 8px;
+    padding: 6px 12px;
+    font-size: 11px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: calc(100vw - 24px);
+    white-space: normal;
+  }
+}
+
+/* Taking the house apart. Bottom-left: the free corner, and the side a left hand reaches while
+   the right one works the orbit. Three detents, not a slider — see the note in roof-control.tsx. */
+.roof {
+  position: absolute;
+  left: 16px;
+  bottom: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 12px;
+}
+.roof__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+/* One track, three stops: the segments read as positions on a single scale rather than three
+   independent switches, which is what they are. */
+.roof__stages {
+  display: flex;
+  gap: 1px;
+  min-width: 0;
+  margin: 0;
+  padding: 2px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--paper-300);
+}
+.roof__stage {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--ink-500);
+  cursor: pointer;
+  transition:
+    background 140ms ease,
+    color 140ms ease;
+}
+.roof__stage:hover {
+  color: var(--ink-900);
+}
+.roof__stage[aria-pressed="true"] {
+  background: var(--paper-100);
+  color: var(--ink-900);
+  box-shadow: 0 1px 2px rgb(40 30 20 / 12%);
+}
+@media (max-width: 767px) {
+  .roof {
+    left: 12px;
+    bottom: 14px;
+    padding: 6px 10px;
+  }
+  .roof__stage {
+    padding: 4px 8px;
+  }
+}
+.roof__aerial {
+  margin-left: 2px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    border-color var(--d-hover),
+    color var(--d-hover);
+}
+.roof__aerial:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+.roof__aerial[aria-pressed="true"] {
+  border-color: var(--accent-400);
+  background: var(--accent-soft);
+  color: var(--accent-600);
+}

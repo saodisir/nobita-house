@@ -1,0 +1,111 @@
+/* House editor page. Same paper-and-ink chrome as the diorama; only the layout differs. */
+
+.editor-head {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 260px;
+  padding: 12px 14px;
+}
+.editor-back {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent-600);
+  text-decoration: none;
+}
+.editor-back:hover {
+  text-decoration: underline;
+}
+.editor-head h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+.editor-head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ink-500);
+}
+
+/* Storey picker: one pressed chip, the paper-and-ink chips of the studio's motion bar. */
+.editor-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding: 0;
+  border: 0;
+}
+.editor-levels legend {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+.editor-levels button {
+  border: 0;
+  background: transparent;
+  padding: 6px 10px;
+  border-radius: var(--r-pill);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    color var(--d-hover);
+}
+.editor-levels button:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+.editor-levels button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-600);
+  font-weight: 700;
+}
+@media (forced-colors: active) {
+  .editor-levels button[aria-pressed="true"] {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+}
+
+/* The room view's one line of help, under its corner chips. */
+.editor-hint {
+  width: 100%;
+}
+
+/* Room names over the plan, the way the drawing letters them: bold white with a dark halo. */
+.room-label {
+  pointer-events: none;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  color: #fff;
+  text-shadow:
+    0 0 3px rgba(35, 28, 20, 0.9),
+    0 1px 2px rgba(35, 28, 20, 0.8);
+}
+.room-label span {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.room-label small {
+  font-size: 10px;
+  opacity: 0.9;
+}

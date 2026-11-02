@@ -1,0 +1,344 @@
+/* Character studio page. Same paper-and-ink chrome as the diorama; only the layout differs. */
+
+.studio-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+  background: radial-gradient(circle at 50% 40%, rgba(255, 252, 246, 0) 42%, rgba(42, 36, 30, 0.2) 100%);
+}
+
+.studio-head {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 250px;
+  padding: 12px 14px;
+}
+.studio-back {
+  display: inline-block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent-600);
+  text-decoration: none;
+}
+.studio-back:hover {
+  text-decoration: underline;
+}
+.studio-head h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.15;
+}
+.studio-head p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--ink-500);
+}
+
+/* Transparent on desktop: the roster and the motion bar keep their own absolute placement.
+   Becomes the bottom stack on a phone — see the media query. */
+.studio-dock {
+  display: contents;
+}
+
+/* Vertical under the title card on desktop; a scrolling strip on a phone. */
+.studio-roster {
+  position: absolute;
+  top: 136px;
+  left: 16px;
+  width: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+}
+.studio-roster a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 8px;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-700);
+  text-decoration: none;
+  transition: background var(--d-hover);
+}
+.studio-roster a:hover {
+  background: var(--paper-300);
+}
+.studio-roster a[aria-current="page"] {
+  background: var(--accent-soft);
+  color: var(--accent-600);
+  font-weight: 700;
+}
+.studio-roster .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px rgba(42, 36, 30, 0.18);
+}
+
+.studio-info {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  padding: 16px 18px;
+}
+.studio-info .eyebrow {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.studio-info h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.1;
+}
+.studio-info .jp {
+  margin: 2px 0 0;
+  font-family: var(--font-jp);
+  font-size: 13px;
+  color: var(--ink-500);
+}
+.studio-stats {
+  display: flex;
+  gap: 18px;
+  margin: 12px 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.studio-stats div {
+  margin: 0;
+}
+.studio-stats dt {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+.studio-stats dd {
+  margin: 2px 0 0;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+}
+.studio-info .body {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink-700);
+}
+
+/* Motion bar, centred along the bottom edge. */
+.studio-motions {
+  position: absolute;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  width: min(680px, calc(100vw - 32px));
+  padding: 10px 14px 12px;
+  text-align: center;
+}
+.studio-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.studio-chips button {
+  border: 0;
+  background: transparent;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    color var(--d-hover);
+}
+.studio-chips button:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+.studio-chips button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-600);
+  font-weight: 700;
+}
+@media (forced-colors: active) {
+  .studio-chips button[aria-pressed="true"] {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+}
+.studio-clip-note {
+  margin: 8px 2px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-500);
+  min-height: 2.4em;
+}
+.studio-empty {
+  margin: 4px 2px 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink-700);
+}
+.studio-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.studio-row label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+.studio-row input[type="range"] {
+  width: 150px;
+  accent-color: var(--accent-600);
+}
+.studio-row output {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 48px;
+  text-align: left;
+}
+.studio-row button {
+  border: 0;
+  background: transparent;
+  padding: 7px 12px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-700);
+  cursor: pointer;
+}
+.studio-row button:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+.studio-row button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-600);
+  font-weight: 700;
+}
+
+@media (max-width: 767px) {
+  .studio-head {
+    top: 12px;
+    left: 12px;
+    width: auto;
+    max-width: calc(100vw - 24px);
+  }
+  .studio-head p {
+    display: none;
+  }
+  /* One bottom-anchored stack, so the motion bar can never paint over the roster however many
+     clips a character carries. Capped so a tall bar scrolls its chips instead of the stack
+     growing past the top of the screen. */
+  .studio-dock {
+    display: flex;
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    flex-direction: column;
+    gap: 8px;
+    max-height: calc(100dvh - 92px);
+  }
+  /* Horizontal strip above the motion bar, scrolling like the diorama's roster. */
+  .studio-roster {
+    position: static;
+    width: auto;
+    flex: 0 0 auto;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+  .studio-roster a {
+    flex-shrink: 0;
+  }
+  /* Compact enough to clear the character's head on a 390 px screen. */
+  .studio-info {
+    top: 12px;
+    right: 12px;
+    width: auto;
+    max-width: 54vw;
+    padding: 8px 11px;
+  }
+  .studio-info h2 {
+    font-size: 15px;
+  }
+  /* The bio and the eyebrow are the first things to go on a phone: the model is the page. */
+  .studio-info .body,
+  .studio-info .jp,
+  .studio-info .eyebrow {
+    display: none;
+  }
+  .studio-stats {
+    gap: 12px;
+    margin: 6px 0 0;
+    padding: 6px 0 0;
+    border-bottom: 0;
+  }
+  .studio-stats dd {
+    font-size: 13px;
+  }
+  /* The clip count is redundant next to the picker itself. */
+  .studio-stats div:last-child {
+    display: none;
+  }
+  .studio-motions {
+    position: static;
+    left: auto;
+    bottom: auto;
+    width: auto;
+    min-height: 0;
+    transform: none;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+  /* The chips are the only part that grows without bound (19-20 clips per character), so they
+     take the scroll. Four rows: enough to browse, little enough that the stage keeps the top
+     two thirds of the screen for the character the page is about. */
+  .studio-chips {
+    min-height: 0;
+    max-height: 168px;
+    overflow-y: auto;
+  }
+  /* At 390px the row needs ~395px in one line; wrapping keeps the slider and both toggles
+     inside the panel. */
+  .studio-row {
+    flex-wrap: wrap;
+  }
+  .studio-clip-note {
+    display: none;
+  }
+}

@@ -1,0 +1,14 @@
+# secrets
+.env
+.env.*
+
+# reference art and raw exports; the build only needs src/ and public/
+assets/
+shots/
+plans/
+docs/
+scripts/
+
+# local build output and deps; Vercel installs and builds itself
+node_modules/
+dist/
