@@ -76,7 +76,7 @@ export const LAWN_KEEP_OUTS: readonly Rect[] = [
   { x0: 0.42, x1: 1.62, z0: 3.69, z1: 5.785 },
   { x0: -3.55, x1: 0.3, z0: 2.765, z1: 3.6 },
   { x0: 2.0, x1: 3.75, z0: -0.193, z1: 0.6 },
-  around(5.9, -11.0, 1.2, 0.9), // shed slab
+  { ...layout.shed }, // shed slab
   // Machinery on the outer walls (env_build.py ac_unit/ac_grille, heater/heater_flue).
   around(-3.855, -1.01, 0.2, 0.425),
   around(3.975, -1.31, 0.22, 0.29),

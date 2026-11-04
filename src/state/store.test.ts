@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { clearOccupiedDoors, markDoorOccupied } from './door-occupancy';
 import { useAppStore } from './store';
 
 /**
@@ -7,7 +8,8 @@ import { useAppStore } from './store';
  * never lets go of the subject.
  */
 
-const reset = () =>
+const reset = () => {
+  clearOccupiedDoors();
   useAppStore.setState({
     selectedCharacterId: null,
     activeRoomId: null,
@@ -23,6 +25,7 @@ const reset = () =>
     modelClips: {},
     openDoors: {},
   });
+};
 
 beforeEach(reset);
 
@@ -199,5 +202,58 @@ describe('the aerial and the lid are independent', () => {
     expect(useAppStore.getState().stage).toBe(1);
     useAppStore.getState().toggleAerial();
     expect(useAppStore.getState().stage).toBe(1);
+  });
+});
+
+describe('a leaf cannot shut through a body', () => {
+  it('keeps an open door open while the walker stands in its doorway', () => {
+    useAppStore.getState().setDoorOpen('door-front', true);
+    markDoorOccupied('door-front');
+
+    useAppStore.getState().toggleDoor('door-front');
+
+    expect(useAppStore.getState().openDoors['door-front']).toBe(true);
+  });
+
+  it('shuts it once the doorway is clear', () => {
+    useAppStore.getState().setDoorOpen('door-front', true);
+    markDoorOccupied('door-front');
+    useAppStore.getState().toggleDoor('door-front');
+    clearOccupiedDoors();
+
+    useAppStore.getState().toggleDoor('door-front');
+
+    expect(useAppStore.getState().openDoors['door-front']).toBe(false);
+  });
+
+  it('still opens a shut door with somebody in its way', () => {
+    markDoorOccupied('door-front');
+
+    useAppStore.getState().toggleDoor('door-front');
+
+    expect(useAppStore.getState().openDoors['door-front']).toBe(true);
+  });
+
+  it('refuses a forced close too, and only for the occupied leaf', () => {
+    useAppStore.getState().setDoorOpen('door-front', true);
+    useAppStore.getState().setDoorOpen('door-back', true);
+    markDoorOccupied('door-front');
+
+    const { setDoorOpen } = useAppStore.getState();
+    setDoorOpen('door-front', false);
+    setDoorOpen('door-back', false);
+
+    expect(useAppStore.getState().openDoors['door-front']).toBe(true);
+    expect(useAppStore.getState().openDoors['door-back']).toBe(false);
+  });
+
+  it('does not make a new map when the close is refused', () => {
+    useAppStore.getState().setDoorOpen('door-front', true);
+    const map = useAppStore.getState().openDoors;
+    markDoorOccupied('door-front');
+
+    useAppStore.getState().toggleDoor('door-front');
+
+    expect(useAppStore.getState().openDoors).toBe(map);
   });
 });

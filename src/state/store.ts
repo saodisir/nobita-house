@@ -3,6 +3,7 @@ import { DEFAULT_TIME_OF_DAY, type TimeOfDayId } from '../data/time-of-day';
 import { tourStops } from '../data/tour';
 import { DEFAULT_WEATHER, type WeatherId } from '../data/weather';
 import { detectLocale, type Locale, storeLocale, syncDocumentLang } from '../i18n/locale';
+import { doorOccupied } from './door-occupancy';
 
 /**
  * How far the diorama is taken apart. `0` the house as built; `1` the roof off, upstairs open to
@@ -189,8 +190,20 @@ export const useAppStore = create<AppState>((set, get) => ({
       return { modelClips: { ...s.modelClips, [id]: clips } };
     }),
   setDoorOpen: (id, open) =>
-    set((s) => (s.openDoors[id] === open ? s : { openDoors: { ...s.openDoors, [id]: open } })),
-  toggleDoor: (id) => set((s) => ({ openDoors: { ...s.openDoors, [id]: !s.openDoors[id] } })),
+    set((s) => {
+      if (s.openDoors[id] === open) return s;
+      // A leaf told to shut by a room view or a child coming back out is no different from a
+      // click: a body in the doorway keeps it open.
+      if (!open && doorOccupied(id)) return s;
+      return { openDoors: { ...s.openDoors, [id]: open } };
+    }),
+  toggleDoor: (id) =>
+    set((s) =>
+      // `blocked()` drops a doorway's box as soon as the leaf opens, so the walker can stand in
+      // the very space that leaf returns to. Opening is always free; swinging shut through a
+      // body is not. The leaf stays open until the doorway is clear.
+      s.openDoors[id] && doorOccupied(id) ? s : { openDoors: { ...s.openDoors, [id]: !s.openDoors[id] } },
+    ),
   // A drive is a session, not a selection. Clicking about while walking must not let go of the
   // camera; clicking another child changes whose feet the session uses, keeping the same view.
   select: (id) =>

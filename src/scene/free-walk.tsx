@@ -7,6 +7,7 @@ import { rectToWorld } from '../data/house-site';
 import { layout } from '../data/scene';
 import { LEVEL, type Rect, ROOMS, STAIR_WALL, STAIRS, STOREYS, WALLS } from '../editor/house/plan';
 import { characterPoses, poseFor } from '../state/character-poses';
+import { clearOccupiedDoors, markDoorOccupied } from '../state/door-occupancy';
 import { type DriveView, useAppStore } from '../state/store';
 
 /**
@@ -27,7 +28,10 @@ import { type DriveView, useAppStore } from '../state/store';
  * that moves in the plan moves here too. Openings whose sill sits at floor level are passable;
  * windows are not. A door is a wall while it is shut: its box is read back from the plan and
  * dropped as soon as `openDoors` says the leaf has moved. The lot's boundary wall comes from
- * `layout`, split around the gate.
+ * `layout`, split around the gate, and so does the back-yard shed, a solid box with no doorway.
+ * A leaf also refuses to shut while the walker stands in its doorway: an open doorway is
+ * passable by design, and a collider cannot stop the swing. `publishOccupiedDoors()` tells the
+ * store which leaves to hold open.
  *
  * Height is a single field rather than two storeys with a teleport between them: the flight is
  * part of it, read from `STAIRS`, so walking to the back of the hall and up twelve treads lands
@@ -161,7 +165,8 @@ const STAIR_RISE = (STAIRS.toY - STAIRS.fromY) / STAIRS.risers;
 /** The knee wall on the flight's hall side, carried as a solid: it is a wall from the waist up. */
 const STAIR_KNEE = rectToWorld({ x0: STAIR_WALL.x0, x1: STAIR_WALL.x1, z0: STAIRS.head, z1: STAIRS.foot });
 
-const GROUND_COLLIDERS = [...wallBoxes('ground'), ...lotBoxes(), STAIR_KNEE];
+/** The GLB's shed has no collision data of its own; its slab is the one truth for both layers. */
+const GROUND_COLLIDERS = [...wallBoxes('ground'), ...lotBoxes(), STAIR_KNEE, layout.shed];
 const UPPER_COLLIDERS = [...wallBoxes('upper'), STAIR_KNEE];
 
 interface DoorBox {
@@ -254,6 +259,24 @@ function blocked(
     if (!openDoors[door.id] && overlaps(door.rect)) return true;
   }
   return false;
+}
+
+/**
+ * Doorways the walker is standing in, published once a frame for the store to refuse a close.
+ *
+ * An open leaf is a hole in the wall on purpose, so `blocked()` cannot keep a body out of the
+ * space that leaf swings back into. The only honest answer is to leave the leaf open until the
+ * doorway is clear. The same rect as the collider, with the walker's own radius: standing on
+ * the threshold counts, standing in the room next door does not.
+ */
+function publishOccupiedDoors(x: number, z: number, storey: 'ground' | 'upper'): void {
+  clearOccupiedDoors();
+  for (const door of storey === 'upper' ? UPPER_DOORS : GROUND_DOORS) {
+    const b = door.rect;
+    if (x > b.x0 - RADIUS && x < b.x1 + RADIUS && z > b.z0 - RADIUS && z < b.z1 + RADIUS) {
+      markDoorOccupied(door.id);
+    }
+  }
 }
 
 /** Scratch for the doorway test; a click is rare enough that neither needs to be per-press. */
@@ -591,7 +614,12 @@ export function FreeWalk() {
   }, [active, driveView, camera, gl]);
 
   useFrame((_, delta) => {
-    if (!active) return;
+    if (!active) {
+      // No walker, no body in a doorway. Without this the last frame's ids would linger and
+      // a click on a door after leaving the drive would be refused for no reason.
+      clearOccupiedDoors();
+      return;
+    }
     const dt = Math.min(delta, 0.05);
     const state = useAppStore.getState();
     const view = state.driveView;
@@ -687,6 +715,7 @@ export function FreeWalk() {
     walkerPose.speed = moving ? pace : 0;
     walkerPose.subjectId = state.possessedId;
     walkerPose.view = view;
+    publishOccupiedDoors(position.current.x, position.current.z, storey);
 
     if (view === 'first') {
       camera.position.set(walkerPose.x, eye.current, walkerPose.z);
