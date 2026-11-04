@@ -154,7 +154,14 @@ export const MATERIALS = {
   plasticLight: { color: '#C3CEDD', tile: 'glaze', repeat: 0.25, normal: 0.3, roughness: 0.5 },
   screen: { color: '#1C2224', tile: 'glaze', repeat: 0.4, normal: 0.05, roughness: 0.15, metalness: 0.2 },
   hob: { color: '#26282A', tile: 'brushed', repeat: 0.3, normal: 0.25, roughness: 0.5, metalness: 0.3 },
-  blackMetal: { color: '#2B2B2B', tile: 'brushed', repeat: 0.3, normal: 0.25, roughness: 0.45, metalness: 0.5 },
+  blackMetal: {
+    color: '#2B2B2B',
+    tile: 'brushed',
+    repeat: 0.3,
+    normal: 0.25,
+    roughness: 0.45,
+    metalness: 0.5,
+  },
   lacquerRed: { color: '#B3322D', tile: 'wood', repeat: 0.5, normal: 0.3, roughness: 0.35 },
   /** Leaf blades: the tile's midrib and veins at one leaf a repeat. The tile is pale green, so the tints run light. */
   leaf: { color: '#5A9142', tile: 'leaf', repeat: 0.12, normal: 0.5, roughness: 0.7 },

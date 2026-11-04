@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useT } from '../i18n/use-i18n';
 import { useAppStore } from '../state/store';
 import { CloseIcon } from './icons';
 import { press } from './motion-presets';
@@ -26,6 +27,7 @@ function FootstepsIcon() {
 export function WalkControl() {
   const freeWalk = useAppStore((s) => s.freeWalk);
   const toggle = useAppStore((s) => s.toggleFreeWalk);
+  const t = useT();
 
   return (
     <motion.button
@@ -33,10 +35,10 @@ export function WalkControl() {
       onClick={toggle}
       whileTap={press}
       aria-pressed={freeWalk}
-      title={freeWalk ? 'Back to the street' : 'Walk the house'}
+      title={t(freeWalk ? 'walkOutTitle' : 'walkInTitle')}
     >
       {freeWalk ? <CloseIcon /> : <FootstepsIcon />}
-      <span className="walk__label">{freeWalk ? 'Exit' : 'Walk'}</span>
+      <span className="walk__label">{t(freeWalk ? 'walkOut' : 'walkIn')}</span>
     </motion.button>
   );
 }

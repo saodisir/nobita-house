@@ -442,6 +442,16 @@ button {
 .controls svg {
   flex-shrink: 0;
 }
+/* One glyph, so the language button is as narrow as an icon button and stays in the phone bar. */
+.controls .lang {
+  padding-left: 9px;
+  padding-right: 9px;
+  font-weight: 700;
+  color: var(--ink-900);
+}
+.lang__glyph {
+  font-variant-east-asian: normal;
+}
 
 .sound {
   min-width: 0;
@@ -850,12 +860,17 @@ button.settings__row:hover,
     transform-origin: bottom left;
   }
   .controls button {
-    min-width: 40px;
-    height: 40px;
+    min-width: 36px;
+    height: 36px;
     padding: 0;
   }
+  /* Icons only: with the language button in the bar there is no room left for two words, and a
+     squeezed label breaks "Walk" into a column of letters. The tooltip still names each one. */
+  .walk__label {
+    display: none;
+  }
   .controls__segmented label {
-    height: 40px;
+    height: 36px;
   }
   .controls__divider {
     margin: 4px 1px;
@@ -865,13 +880,17 @@ button.settings__row:hover,
     bottom: calc(100% + 8px);
     transform-origin: bottom right;
   }
-  /* The stepper shrinks to icons + counter on phones; the room name is already in the title. */
-  .tour__stop {
-    display: none;
-  }
+  /* The stepper shrinks to icons on phones. The stop name and the counter stay in the page — the
+     live region still announces each leg — but they take no room, because the language button
+     now needs what they used to occupy. */
   .tour__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
     min-width: 0;
-    padding: 0 2px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
   /* The toolbar is the bottom bar here, which frees the top-right corner for the menus toggle. */
   .menus-toggle {
@@ -913,6 +932,11 @@ button.settings__row:hover,
 }
 /* The narrowest phones (320px): 34px controls keep the whole bar on screen. */
 @media (max-width: 359px) {
+  /* The dividers are the cheapest thing to lose here: decoration, five of them, and together
+     wider than the room name they are pushing out of the place button. */
+  .controls__divider {
+    display: none;
+  }
   .controls button {
     min-width: 34px;
     height: 34px;
@@ -1069,4 +1093,162 @@ button.settings__row:hover,
   border-color: var(--accent-400);
   background: var(--accent-soft);
   color: var(--accent-600);
+}
+
+/* --- driving a child -------------------------------------------------------------------
+   The card's one action, and the bar that takes over the bottom of the screen while somebody
+   is under the hand. The bar is deliberately not part of `.menus`: hiding the chrome for a
+   clean screenshot should not take away the only way to let go of a child. */
+.card__action {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 9px 16px;
+  border: 1px solid var(--accent-400);
+  border-radius: var(--r-pill);
+  background: var(--accent-soft);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-600);
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    color var(--d-hover);
+}
+.card__action:hover {
+  background: var(--accent-600);
+  color: var(--paper-100);
+}
+
+.pose-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  transform: translateX(-50%);
+  z-index: 30;
+  /* The menus toggle floats at the bottom right; the bar keeps clear of it down to 768 px. */
+  width: min(720px, calc(100vw - 120px));
+  padding: 10px 14px 12px;
+  font-family: var(--font-ui);
+}
+.pose-bar__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.pose-bar__head .swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px rgba(42, 36, 30, 0.18);
+}
+.pose-bar__head b {
+  font: 700 15px / 1.2 var(--font-display);
+  font-variation-settings:
+    "SOFT" 100,
+    "WONK" 1;
+  color: var(--ink-900);
+}
+.pose-bar__release {
+  margin-left: auto;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    color var(--d-hover);
+}
+.pose-bar__release:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+.pose-bar__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  /* Twenty-five clips is a real model: three rows, then it scrolls rather than eating the view. */
+  max-height: 104px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.pose-bar__chips button {
+  padding: 7px 12px;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    color var(--d-hover);
+}
+.pose-bar__chips button:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+.pose-bar__chips button[aria-pressed="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-600);
+  font-weight: 700;
+}
+@media (forced-colors: active) {
+  .pose-bar__chips button[aria-pressed="true"] {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+}
+.pose-bar__note,
+.pose-bar__empty {
+  margin: 8px 2px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ink-500);
+}
+.pose-bar__hint {
+  margin: 8px 2px 0;
+  font-size: 11px;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  color: var(--ink-500);
+}
+@media (max-width: 767px) {
+  .pose-bar {
+    /* Above the menus toggle rather than under it: at this width they share the bottom edge. */
+    bottom: 96px;
+    width: calc(100vw - 40px);
+    padding: 8px 10px 10px;
+  }
+  /* One scrolling rail instead of three clipped rows: at this width a wrapped fieldset ends
+     mid-chip, which reads as a bug rather than as somewhere to scroll. */
+  .pose-bar__chips {
+    flex-wrap: nowrap;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .pose-bar__chips::-webkit-scrollbar {
+    display: none;
+  }
+  .pose-bar__chips button {
+    flex: 0 0 auto;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .pose-bar__hint {
+    display: none;
+  }
 }

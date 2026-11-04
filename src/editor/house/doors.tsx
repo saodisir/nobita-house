@@ -2,6 +2,7 @@ import { type ThreeEvent, useFrame } from '@react-three/fiber';
 import { type RefObject, useEffect, useRef, useState } from 'react';
 import { type Group, type Material, Raycaster } from 'three';
 import { playOpenSfx } from '../../audio/sfx';
+import { useAppStore } from '../../state/store';
 import { prefersReducedMotion } from '../../utils/reduced-motion';
 import type { Door, DoorLeafPart } from './build-shell';
 import { type MaterialKey, specOf } from './materials';
@@ -81,6 +82,13 @@ function DoorLeaves({
   useEffect(() => {
     if (opened === door.id) setOpen(true);
   }, [opened, door.id]);
+  // Held open or shut from outside the click handler — a child walking in from the yard, say.
+  // Undefined means nobody is holding it, and the click alone decides.
+  const held = useAppStore((s) => s.openDoors[door.id]);
+  useEffect(() => {
+    if (held === undefined) return;
+    setOpen(held);
+  }, [held]);
   const [hovered, setHovered] = useState(false);
   const groups = useRef<(Group | null)[]>([]);
   const t = useRef(0);

@@ -67,20 +67,36 @@ describe('walk clock', () => {
 
   it('never brakes harder than it accelerates, however close to home it is stopped', () => {
     // Stopping 5 cm short of home cannot brake in time: it stops just past and walks back.
+    const ACCEL = WALK_SPEED / 0.6;
     for (const short of [3, 0.2, 0.05]) {
       const c = createWalkClock();
       run(c, true, (WALK_LOOP_LENGTH - short) / WALK_SPEED);
       let lastSpeed = c.speed;
       let maxDrop = 0;
+      let landed = false;
+      let atLanding = 0;
       run(c, false, 30, (s) => {
+        if (s.phase === 'home') {
+          // The last step snaps onto d = 0 instead of walking the sub-frame remainder, so that
+          // one frame goes from `lastSpeed` to nought. What makes that a stop rather than a
+          // cliff is that by then the gap is shorter than a frame's travel.
+          atLanding = lastSpeed;
+          landed = true;
+          return true;
+        }
         maxDrop = Math.max(maxDrop, lastSpeed - s.speed);
         lastSpeed = s.speed;
-        return s.phase === 'home';
+        return false;
       });
+      expect(landed).toBe(true);
       expect(c.phase, `${short} m short`).toBe('home');
-      // One frame of braking at ACCEL is 0.028 m/s; the last few millimetres snap onto d = 0
-      // from under 0.1 m/s. Stopped 5 cm short without room to brake, it used to drop 0.6.
+      // Every frame before that brakes at `ACCEL`; one frame of it is 0.028 m/s, so anything
+      // near the old 0.6 m/s cliff would show up here.
       expect(maxDrop, `${short} m short`).toBeLessThan(0.1);
+      // Once the gap is under a frame's travel the braking curve is no longer resolvable, and
+      // the walker lands from `sqrt(2·a·frame)` plus the last frame of braking — 0.26 m/s, a
+      // couple of millimetres short of home.
+      expect(atLanding, `${short} m short`).toBeLessThanOrEqual(Math.sqrt(2 * ACCEL * FRAME) + ACCEL * FRAME);
     }
   });
 

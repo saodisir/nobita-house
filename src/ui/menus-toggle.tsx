@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useT } from '../i18n/use-i18n';
 import { press } from './motion-presets';
 
 interface Props {
@@ -11,14 +12,15 @@ interface Props {
 /** Corner button that folds every main-page menu away so the scene can be seen whole, and back. */
 export function MenusToggle({ open, onToggle, controls }: Props) {
   // Fixed accessible name + aria-expanded ("Menus, expanded"); the tooltip says what a click does.
+  const t = useT();
   return (
     <motion.button
       type="button"
       className="panel menus-toggle"
       aria-expanded={open}
       aria-controls={controls}
-      aria-label="Menus"
-      title={open ? 'Hide menus' : 'Show menus'}
+      aria-label={t('menus')}
+      title={t(open ? 'menusHide' : 'menusShow')}
       onClick={onToggle}
       whileTap={press}
     >

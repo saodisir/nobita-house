@@ -2,6 +2,8 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useRef, useState } from 'react';
 import { Raycaster, Vector3 } from 'three';
 import { roomHotspots } from '../data/room-hotspots';
+import { pick } from '../i18n/locale';
+import { useLocale } from '../i18n/use-i18n';
 import { useAppStore } from '../state/store';
 
 /** Screen position of one pin, and whether the room's own geometry is in the way. */
@@ -119,6 +121,7 @@ export function RoomPinTracker({ onPlace }: { onPlace: (placed: Placed[]) => voi
 export function RoomPins({ placed }: { placed: Placed[] }) {
   const selected = useAppStore((s) => s.selectedRoomHotspot);
   const selectRoomHotspot = useAppStore((s) => s.selectRoomHotspot);
+  const locale = useLocale();
   const [focused, setFocused] = useState<string | null>(null);
   if (placed.length === 0) return null;
   return (
@@ -143,7 +146,7 @@ export function RoomPins({ placed }: { placed: Placed[] }) {
             onClick={() => selectRoomHotspot(selected === hotspot.id ? null : hotspot.id)}
           >
             <span className="room-pin__disc" aria-hidden="true" />
-            <span className="sr-only">{hotspot.title}</span>
+            <span className="sr-only">{pick(hotspot.title, locale)}</span>
           </button>
         );
       })}

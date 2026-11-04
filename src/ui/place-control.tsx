@@ -1,17 +1,19 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import { type HouseRoom, rooms } from '../data/rooms';
+import { pick } from '../i18n/locale';
+import { type UIKey, useLocale, useT } from '../i18n/use-i18n';
 import { useAppStore } from '../state/store';
 import { ChevronIcon, CloseIcon, HouseIcon } from './icons';
 import { press } from './motion-presets';
 import { useDismiss } from './use-dismiss';
 
-type Section = { label: string; rooms: readonly HouseRoom[] };
+type Section = { label: UIKey; rooms: readonly HouseRoom[] };
 
 /** Grouped the way the house is: downstairs or up. The street is not a room, so it does not list. */
 const sections: Section[] = [
-  { label: 'Ground floor', rooms: rooms.filter((room) => room.storey === 'ground') },
-  { label: 'Upstairs', rooms: rooms.filter((room) => room.storey === 'upper') },
+  { label: 'placeGroundFloor', rooms: rooms.filter((room) => room.storey === 'ground') },
+  { label: 'placeUpstairs', rooms: rooms.filter((room) => room.storey === 'upper') },
 ];
 
 /**
@@ -31,6 +33,8 @@ export function PlaceControl() {
   const tourActive = useAppStore((s) => s.tourIndex !== null);
   const enterRoom = useAppStore((s) => s.enterRoom);
   const leaveRoom = useAppStore((s) => s.leaveRoom);
+  const locale = useLocale();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -89,19 +93,19 @@ export function PlaceControl() {
         className="place__trigger"
         aria-expanded={open}
         aria-controls={menuId}
-        title={activeRoomId ? 'Go to another room' : 'Look inside the house'}
+        title={t(activeRoomId ? 'placeAnotherRoom' : 'placeLookInside')}
         onClick={() => setOpen((wasOpen) => !wasOpen)}
         whileTap={press}
       >
         <HouseIcon />
-        <span className="place__current">{current ? current.shortName : 'Street'}</span>
+        <span className="place__current">{current ? pick(current.shortName, locale) : t('placeStreet')}</span>
         <ChevronIcon />
       </motion.button>
       {activeRoomId && (
         <motion.button
           type="button"
-          aria-label="Back to the street"
-          title="Back to the street"
+          aria-label={t('placeBackToStreet')}
+          title={t('placeBackToStreet')}
           onClick={() => {
             leaveRoom();
             setOpen(false);
@@ -118,7 +122,7 @@ export function PlaceControl() {
             id={menuId}
             className="panel place__menu"
             role="group"
-            aria-label="Places"
+            aria-label={t('placeMenu')}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.96 }}
@@ -126,7 +130,7 @@ export function PlaceControl() {
           >
             {sections.map((section) => (
               <Fragment key={section.label}>
-                <p className="place__heading">{section.label}</p>
+                <p className="place__heading">{t(section.label)}</p>
                 {section.rooms.map((room) => (
                   <button
                     key={room.id}
@@ -135,7 +139,7 @@ export function PlaceControl() {
                     aria-current={activeRoomId === room.id ? 'true' : undefined}
                     onClick={() => go(room.id)}
                   >
-                    {room.name}
+                    {pick(room.name, locale)}
                     <span className="place__jp" lang="ja">
                       {room.kana}
                     </span>

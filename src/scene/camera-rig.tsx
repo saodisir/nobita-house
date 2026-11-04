@@ -28,24 +28,38 @@ const FOLLOW_TIME = 0.2;
  * which is what "I lifted the roof and saw nothing" actually was. The aerial has to move the target
  * onto the house as well, and only a scripted move does both.
  *
- * The framing is the opened house, not the shut one: it takes in the ground floor where it stands
- * and the upper floor standing beside it, so both storeys are in one shot. `AERIAL_SHIFT` is that
- * westward bias — roughly half the upper floor's travel, so neither end crowds the edge.
+ * It stands on the same line the default framing does — the gate's axis — and only climbs. The
+ * framing is the opened house, not the shut one: it takes in the ground floor where it stands and
+ * the upper floor standing beside it, so both storeys are in one shot. `AERIAL_SHIFT` is the
+ * westward bias that buys the upper floor its room, not a second basis: the eye stays on the axis.
  */
 const AERIAL_EYE_HEIGHT = 17.5;
 const AERIAL_BACK = 12.5;
 const AERIAL_TARGET_Y = 2.6;
-const AERIAL_SHIFT = -3;
+const AERIAL_SHIFT = -1.2;
 
-/** The street: orbit, dolly and truck round the block, never from below the ground. */
+/** The gate's axis. The gate, the path stones, the front door and both framings stand on it. */
+const AXIS_X = layout.wall.gateX;
+
+/**
+ * The street: orbit, dolly and truck round the block, never from below the ground.
+ *
+ * The speeds are set from what a drag actually does rather than by taste: at 0.7 a 150 px drag
+ * turned the view 44°, which is a third of the way round the house from a flick of the wrist,
+ * and the only way to aim was to drag, overshoot, and drag back. At 0.5 the same drag is 31°.
+ * The wheel was worse: at 1 one notch took a quarter off the distance, so a two-finger scroll
+ * on a trackpad pinned the eye at `minDistance` and it read as "the camera is stuck". At 0.35
+ * a notch takes about a fifth off, fine enough to aim with and still seven notches from the
+ * default framing to the gate.
+ */
 const STREET: ControlMode = {
   minPolarAngle: config.camera.minPolarAngle,
   maxPolarAngle: config.camera.maxPolarAngle,
-  azimuthRotateSpeed: 0.7,
-  polarRotateSpeed: 0.7,
+  azimuthRotateSpeed: 0.5,
+  polarRotateSpeed: 0.5,
   mouseButtons: ORBIT_MOUSE,
   touches: ORBIT_TOUCH,
-  dollySpeed: 1,
+  dollySpeed: 0.35,
 };
 
 /** Wraps an angle difference into (−π, π]: the short way round. */
@@ -79,10 +93,18 @@ export function CameraRig() {
   const reduced = useReducedMotionRef();
   /** Whether last frame tracked a walker; the follow point is re-seeded when tracking starts. */
   const tracking = useRef(false);
+  /**
+   * The visitor has the camera in hand. A child selected out on a walk is followed, which means
+   * the target walks off with it — and a drag that is immediately overruled by the next frame's
+   * `moveTo` reads as "the mouse does not work". One touch hands the camera over and it stays
+   * handed over until another child is picked.
+   */
+  const grabbed = useRef(false);
   /** Street the tracked walker was last nearest, and whether a swing to its side is due. */
   const street = useRef<number | null>(null);
   const swingDue = useRef(false);
   const selectedId = useAppStore((s) => s.selectedCharacterId);
+  const possessedId = useAppStore((s) => s.possessedId);
   const resetToken = useAppStore((s) => s.resetToken);
   const autoRotate = useAppStore((s) => s.autoRotate);
   const aerial = useAppStore((s) => s.aerialView);
@@ -126,8 +148,8 @@ export function CameraRig() {
       if (!beforeAerial.current) {
         beforeAerial.current = { eye: c.getPosition(new Vector3()), target: c.getTarget(new Vector3()) };
       }
-      const { x0, x1, z0, z1 } = HOUSE_FOOTPRINT;
-      const cx = (x0 + x1) / 2 + AERIAL_SHIFT;
+      const { z0, z1 } = HOUSE_FOOTPRINT;
+      const cx = AXIS_X + AERIAL_SHIFT;
       const cz = (z0 + z1) / 2;
       c.setLookAt(cx, AERIAL_EYE_HEIGHT, cz + AERIAL_BACK, cx, AERIAL_TARGET_Y, cz, animate);
       return;
@@ -143,6 +165,7 @@ export function CameraRig() {
     const def = selectedId ? characterById(selectedId) : undefined;
     // A character flight from inside the room would fly the camera out through a wall.
     if (!c || inRoom) return;
+    grabbed.current = false;
     if (!def) {
       c.setFocalOffset(0, 0, 0, !prefersReducedMotion());
       return;
@@ -179,6 +202,40 @@ export function CameraRig() {
     // `enterRoom` clears the selection, so coming back never re-fires a character flight.
   }, [selectedId, inRoom]);
 
+  /**
+   * Taking hold of a child pulls the lens in on it, once. The bearing is the visitor's own: the
+   * eye stays where they were already looking from, and only the distance and the subject change.
+   *
+   * Swinging round to sit behind the child was the first attempt and it put the camera inside the
+   * garden wall — every child at rest faces the street, so "behind" is the house's side of it.
+   * Nothing needs forcing anyway: the keys are read against the view, so the child turns to walk
+   * away from wherever the camera is.
+   */
+  useEffect(() => {
+    const c = controls.current;
+    const def = possessedId ? characterById(possessedId) : undefined;
+    if (!c || !def) return;
+    tracking.current = false;
+    grabbed.current = false;
+    const pose = characterPoses.get(def.id);
+    const x = pose?.position.x ?? def.position[0];
+    const y = pose?.position.y ?? def.position[1];
+    const z = pose?.position.z ?? def.position[2];
+    const dist = def.height * 3.4;
+    let azimuth = c.azimuthAngle;
+    if (inLot(x + dist * Math.sin(azimuth), z + dist * Math.cos(azimuth))) azimuth = streetward(x, z);
+    c.setFocalOffset(0, 0, 0, false);
+    c.setLookAt(
+      x + dist * Math.sin(azimuth),
+      y + def.height * 1.15,
+      z + dist * Math.cos(azimuth),
+      x,
+      y + def.height * 0.62,
+      z,
+      !prefersReducedMotion(),
+    );
+  }, [possessedId]);
+
   useEffect(() => {
     let raf = 0;
     const spin = () => {
@@ -192,10 +249,28 @@ export function CameraRig() {
   useFrame((_, delta) => {
     const c = controls.current;
     if (!c) return;
-    const { selectedCharacterId: id, autoRotate: spinning } = useAppStore.getState();
+    const { selectedCharacterId: id, autoRotate: spinning, possessedId: held } = useAppStore.getState();
+
+    // Driving a child: the target follows it every frame, whatever the visitor is doing with the
+    // mouse. `moveTo` shifts target and eye together, so dragging an orbit angle still holds.
+    const holding = held ? characterPoses.get(held) : undefined;
+    const holdingDef = held ? characterById(held) : undefined;
+    if (holding && holdingDef) {
+      if (!tracking.current) {
+        c.getTarget(follow, false);
+        tracking.current = true;
+      }
+      const k = reduced.current ? 1 : 1 - Math.exp(-delta / FOLLOW_TIME);
+      follow.x += (holding.position.x - follow.x) * k;
+      follow.y += (holding.position.y + holdingDef.height * 0.7 - follow.y) * k;
+      follow.z += (holding.position.z - follow.z) * k;
+      c.moveTo(follow.x, follow.y, follow.z, false);
+      return;
+    }
+
     const pose = id ? characterPoses.get(id) : undefined;
     const def = id ? characterById(id) : undefined;
-    if (!pose?.moving || !def) {
+    if (grabbed.current || !pose?.moving || !def) {
       tracking.current = false;
       return;
     }
@@ -246,6 +321,14 @@ export function CameraRig() {
       smoothTime={0.16}
       truckSpeed={0.9}
       draggingSmoothTime={0.07}
+      // The wheel dollies toward whatever is under the cursor rather than toward the middle of
+      // the frame, so a dolly reads as "come closer to that" instead of "the whole block gets
+      // bigger". The canvas is the whole window, so the controls need no viewport setting.
+      dollyToCursor
+      // Any grab, wheel or drag hands the camera over: see `grabbed`.
+      onControlStart={() => {
+        grabbed.current = true;
+      }}
       onChange={() => {
         // Keep the orbit target inside the block so the user cannot pan away from the diorama.
         // Inside a room the target is a hair in front of the eye, which stands where it was put.

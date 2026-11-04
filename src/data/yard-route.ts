@@ -90,6 +90,46 @@ export interface YardSample {
 const mod = (a: number, m: number) => ((a % m) + m) % m;
 
 /**
+ * How far past a corner a child's lane swings back out to its own offset, metres.
+ *
+ * A lane is an offset from the lap, and the lap's offset direction turns by a right angle at
+ * each corner: carried through unchanged, a child in the 0.55 m lane would be thrown 0.78 m
+ * sideways in a single frame. Shrinking the lane to nothing through the corner was the first
+ * answer, and it made every corner the one place all three children converge — two of them
+ * arriving together walked through each other. So the offset keeps its distance and only its
+ * *direction* turns, over this many metres, which is a child swinging wide round the corner.
+ */
+const CORNER_FADE = 1.2;
+
+const smooth = (t: number) => t * t * (3 - 2 * t);
+
+/**
+ * The outboard unit normal at `along` metres into segment `index`.
+ *
+ * For the first `CORNER_FADE` metres of a segment it turns from the previous segment's normal
+ * to this one's, so the lane leaves the corner in the direction it arrived in and comes round
+ * to the new side over a stride and a bit. Both sides of a corner therefore agree at the
+ * corner itself, which is what keeps the walk continuous.
+ */
+function outboardNormal(index: number, along: number): readonly [number, number] {
+  const cur = segments[index];
+  const prev = segments[(index - 1 + segments.length) % segments.length];
+  if (!cur || !prev) throw new RangeError('yard loop has no segments');
+  const bx = -cur.dz;
+  const bz = cur.dx;
+  const t = smooth(Math.min(1, along / CORNER_FADE));
+  if (t >= 1) return [bx, bz];
+  const ax = -prev.dz;
+  const az = prev.dx;
+  const x = ax + (bx - ax) * t;
+  const z = az + (bz - az) * t;
+  // Between two right-angle normals the blend is 0.78 long: length is what the lane is for,
+  // so it is put back rather than left to shrink through the corner.
+  const len = Math.hypot(x, z) || 1;
+  return [x / len, z / len];
+}
+
+/**
  * Position `u` metres round the lap, `lateral` metres off the line on the outboard side
  * (positive away from the house), into `out`. The lap is a closed rectangle, so `u` wraps.
  */
@@ -105,9 +145,7 @@ export function sampleYard(u: number, lateral: number, out: YardSample): YardSam
   const seg = segments[lo];
   if (!seg) throw new RangeError('yard loop has no segments');
   const along = Math.min(t - seg.s, seg.length);
-  // The outboard normal of a clockwise lap is the direction turned a quarter the other way.
-  const nx = -seg.dz;
-  const nz = seg.dx;
+  const [nx, nz] = outboardNormal(lo, along);
   out.x = seg.x + seg.dx * along + nx * lateral;
   out.y = YARD_Y;
   out.z = seg.z + seg.dz * along + nz * lateral;

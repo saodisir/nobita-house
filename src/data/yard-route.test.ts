@@ -54,6 +54,30 @@ describe('yard route', () => {
     expect(s.x).toBeCloseTo(layout.wall.gateX, 6);
   });
 
+  it('keeps the three lanes apart all the way round, corners included', () => {
+    // The first answer to the corner — shrink the lane to nothing at each one — made every
+    // corner the place all three children converged, and two arriving together walked through
+    // each other. A lane is only worth having if it is a lane at the corner too.
+    const a: YardSample = { x: 0, y: 0, z: 0, heading: 0 };
+    const b: YardSample = { x: 0, y: 0, z: 0, heading: 0 };
+    let closest = Number.POSITIVE_INFINITY;
+    let worst = 0;
+    for (let i = 0; i < LATERALS.length; i++) {
+      for (let j = i + 1; j < LATERALS.length; j++) {
+        for (let u = 0; u < YARD_LOOP_LENGTH; u += STEP) {
+          sampleYard(u, LATERALS[i] ?? 0, a);
+          sampleYard(u, LATERALS[j] ?? 0, b);
+          const gap = Math.hypot(a.x - b.x, a.z - b.z);
+          if (gap < closest) {
+            closest = gap;
+            worst = u;
+          }
+        }
+      }
+    }
+    expect(closest, `lanes met at ${worst.toFixed(2)} m`).toBeGreaterThan(0.5);
+  });
+
   it('is one flat lap, wrapping cleanly at its length', () => {
     const a = sampleYard(0, 0, { x: 0, y: 0, z: 0, heading: 0 });
     const b = sampleYard(YARD_LOOP_LENGTH, 0, { x: 0, y: 0, z: 0, heading: 0 });

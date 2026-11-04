@@ -8,6 +8,7 @@
  */
 import { interiorOf, type RoomId, roomBeside, STOREYS, type StoreyId, WALLS } from '../editor/house/plan';
 import { ROOM_VIEWS, type RoomView } from '../editor/room-views';
+import type { Localized } from '../i18n/locale';
 import { rectToWorld, toWorld } from './house-site';
 import type { Rect } from './scene';
 
@@ -23,9 +24,9 @@ export interface RoomWindow {
 
 export interface HouseRoom {
   id: RoomId;
-  name: string;
+  name: Localized;
   /** Toolbar label: the full name does not fit a control beside the other places. */
-  shortName: string;
+  shortName: Localized;
   kana: string;
   storey: StoreyId;
   /** Bounding box of its finished floor. */
@@ -52,6 +53,39 @@ const SHORT_NAMES: Partial<Record<RoomId, string>> = {
   nobita: 'Bedroom',
   doraOshiire: 'Doraemon',
   upperHall: 'Landing',
+};
+
+/**
+ * The rooms in Chinese. English is not repeated here: it is the plan's own `room.name`, so a room
+ * renamed in `plan.ts` renames itself in the diorama and the two can never drift apart. The
+ * Japanese name is the house's, written over the fusuma — not a label for the visitor, so it is
+ * not translated either.
+ */
+const NAMES_ZH: Record<RoomId, string> = {
+  yoshitsu: '西式客厅',
+  living: '起居室',
+  nook: '梳妆角',
+  oshiire: '壁橱',
+  genkan: '玄关',
+  hallway: '走廊',
+  toilet: '厕所',
+  washroom: '盥洗室',
+  bath: '浴室',
+  kitchen: '厨房与餐厅',
+  doma: '后门',
+  nobita: '大雄的房间',
+  doraOshiire: '哆啦A梦的壁橱',
+  storeroom: '储藏室',
+  upperHall: '二楼走廊',
+  stairwell: '楼梯间',
+};
+
+/** The same shortening, in Chinese: only the ones that need it. */
+const SHORT_NAMES_ZH: Partial<Record<RoomId, string>> = {
+  kitchen: '厨房',
+  nobita: '卧室',
+  doraOshiire: '哆啦A梦',
+  upperHall: '二楼',
 };
 
 function entryOf(roomId: RoomId, storey: StoreyId): RoomWindow | undefined {
@@ -87,8 +121,11 @@ export const rooms: HouseRoom[] = ROOM_VIEWS.map(({ room, views }) => {
   const floors = room.rects.map((r) => rectToWorld(interiorOf(r, room.storey)));
   return {
     id: room.id,
-    name: room.name,
-    shortName: SHORT_NAMES[room.id] ?? room.name,
+    name: { en: room.name, zh: NAMES_ZH[room.id] },
+    shortName: {
+      en: SHORT_NAMES[room.id] ?? room.name,
+      zh: SHORT_NAMES_ZH[room.id] ?? NAMES_ZH[room.id],
+    },
     kana: room.kana,
     storey: room.storey,
     bounds: {

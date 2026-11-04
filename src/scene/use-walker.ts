@@ -1,16 +1,23 @@
 import { useFrame } from '@react-three/fiber';
-import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
-import type { Group } from 'three';
+import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { type Group, Vector3 } from 'three';
 import type { CharacterDef } from '../data/characters';
-import type { WalkSample } from '../data/walk-routes';
+import { housePathDoors } from '../data/house-path';
+import { RUN_SPEED, type WalkSample } from '../data/walk-routes';
 import { poseFor } from '../state/character-poses';
 import { useAppStore } from '../state/store';
-import { advanceWander, createWander, sampleWander, type WanderState, wanderSpeed } from './wander';
+import { advanceHold, heldPose } from './possession';
+import { RUN_AT } from './walk-clips';
+import { createWander, isPlaying, sampleWander, type WanderState, wanderSpeed } from './wander';
+import { advancePack, joinPack } from './wander-pack';
 
 /** How fast a walker's yaw closes on the route heading, per second: a visible turn, not a snap. */
 const TURN_RATE = 8;
 /** Below this ground speed a walker is standing, whatever its clock still holds. */
 const MOVING_EPSILON = 0.08;
+
+/** Where the camera is looking, flattened, for reading the driving keys against the view. */
+const LOOK = new Vector3();
 
 const wrapPi = (a: number) => a - 2 * Math.PI * Math.floor((a + Math.PI) / (2 * Math.PI));
 
@@ -20,9 +27,15 @@ export interface WalkerPose {
   moving: boolean;
   /** Out on a route but stopped for a moment: standing about, not at home. */
   resting: boolean;
+  /** Moving faster than a walk: the run clip fits, the walk clip does not. */
+  running: boolean;
+  /** Out where there is room to play — the vacant lot or the garden — rather than at the kerb. */
+  outside: boolean;
+  /** The game the group is in the middle of, if any. */
+  game: string | null;
 }
 
-const STILL: WalkerPose = { moving: false, resting: false };
+const STILL: WalkerPose = { moving: false, resting: false, running: false, outside: false, game: null };
 
 /**
  * Drives the character's outer group: position from its own wander, yaw turning toward the
@@ -35,12 +48,76 @@ const STILL: WalkerPose = { moving: false, resting: false };
  * Returns the coarse state; it flips a handful of times a minute, not per frame.
  */
 export function useWalker(ref: RefObject<Group | null>, index: number, def: CharacterDef): WalkerPose {
-  const [coarse, setCoarse] = useState<WalkerPose>(STILL);
+  const [coarse, applyCoarse] = useState<WalkerPose>(STILL);
   const seen = useRef<WalkerPose>(STILL);
+  const indoorsSeen = useRef(false);
   const wander = useRef<WanderState | null>(null);
   if (!wander.current) wander.current = createWander(index, def);
   const sample = useRef<WalkSample>({ x: 0, y: 0, z: 0, heading: 0 });
   const body = poseFor(def.id);
+
+  /**
+   * Publish the coarse state, but only when it has actually changed. The flags flip a handful
+   * of times a minute; this is called from `useFrame`, and re-rendering six characters sixty
+   * times a second to say the same thing is the one thing the split into coarse and live state
+   * was for.
+   */
+  const publish = (next: WalkerPose) => {
+    const was = seen.current;
+    if (
+      next.moving === was.moving &&
+      next.resting === was.resting &&
+      next.running === was.running &&
+      next.outside === was.outside &&
+      next.game === was.game
+    ) {
+      return;
+    }
+    seen.current = next;
+    applyCoarse(next);
+  };
+
+  // Advance with the rest of the pack, not alone: the street is one lane and a child that
+  // pauses blocks it. See `wander-pack.ts`.
+  useEffect(() => {
+    const state = wander.current;
+    if (!state) return;
+    return joinPack(def.id, index, state);
+  }, [def.id, index]);
+
+  // Dev hook, same idea as `__walker` in `free-walk.tsx`: enough to read a child's state from a
+  // screenshot script or the console without guessing from pixels.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const w = window as unknown as { __walkers?: Record<string, unknown> };
+    w.__walkers = {
+      ...w.__walkers,
+      [def.id]: {
+        state: wander,
+        sample,
+        pose: body,
+        // The rendered group, so a probe can tell the place the sampler names from the place
+        // the mesh actually ended up: they should be the same, and one glance says whether.
+        group: ref,
+        read: () => {
+          const s = wander.current;
+          if (!s) return null;
+          return {
+            kind: s.kind,
+            leg: s.leg,
+            exit: Number(s.exit.toFixed(2)),
+            doorLock: s.doorLock,
+            u: Number(s.u.toFixed(2)),
+            d: Number(s.clock.d.toFixed(2)),
+            houseD: Number(s.houseD.toFixed(2)),
+            doorU: Number(s.doorU.toFixed(2)),
+            paused: s.paused,
+            speed: Number((s.kind === 'street' ? s.clock.speed : s.speed).toFixed(2)),
+          };
+        },
+      },
+    };
+  }, [def.id, body, ref]);
 
   // Place the group before its first paint, straight onto the route with no turn.
   useLayoutEffect(() => {
@@ -55,13 +132,47 @@ export function useWalker(ref: RefObject<Group | null>, index: number, def: Char
     body.speed = wanderSpeed(state);
   }, [ref, index, body]);
 
-  useFrame((_state, delta) => {
+  useFrame((frame, delta) => {
     const group = ref.current;
     const state = wander.current;
     if (!group || !state) return;
 
     const step = Math.min(delta, 0.1);
-    advanceWander(state, step, useAppStore.getState().walkMode);
+    const store = useAppStore.getState();
+    // The whole pack steps once per frame; the first walker to be visited does it for all six.
+    // The child under the hand is left out of that pass — see `advancePack`.
+    advancePack(frame.clock.elapsedTime, store.walkMode, store.possessedId);
+
+    // Held: the lap stops mattering and the keys take over. Everything below this is the walk's
+    // own business — the gate, the doors, the games — and none of it applies to a driven child.
+    if (store.possessedId === def.id) {
+      const look = frame.camera.getWorldDirection(LOOK);
+      advanceHold(step, look.x, look.z);
+      group.position.set(heldPose.x, heldPose.y, heldPose.z);
+      group.rotation.set(0, heldPose.heading, 0);
+      body.position.copy(group.position);
+      body.heading = heldPose.heading;
+      body.speed = heldPose.speed;
+      body.moving = heldPose.moving;
+      body.resting = !heldPose.moving;
+      publish({
+        moving: heldPose.moving,
+        resting: !heldPose.moving,
+        running: heldPose.running,
+        outside: false,
+        game: null,
+      });
+      return;
+    }
+
+    // Doors open before the child reaches them and shut once it is back out. Held on the store
+    // rather than reached into `doors.tsx`, which knows nothing about who is walking.
+    const indoors = state.leg !== 'yard';
+    if (indoors !== indoorsSeen.current) {
+      indoorsSeen.current = indoors;
+      const { setDoorOpen } = useAppStore.getState();
+      for (const door of housePathDoors) setDoorOpen(door, indoors);
+    }
     const s = sampleWander(state, index, sample.current);
     group.position.set(s.x, s.y, s.z);
     const turn = wrapPi(s.heading - group.rotation.y);
@@ -70,22 +181,25 @@ export function useWalker(ref: RefObject<Group | null>, index: number, def: Char
     body.position.copy(group.position);
     body.heading = group.rotation.y;
     const speed = wanderSpeed(state);
-    // Two ways of standing still, because the two loops stop differently. A street walker's
-    // clock holds its speed through a pause (the pause simply stops advancing it), so the pause
-    // has to end the walk clip itself. A yard walker eases to a stop, and stays in the walk clip
-    // until it has actually arrived — the clip slowing into the pause instead of cutting at
-    // full stride.
-    const settling = state.kind === 'street' && state.paused;
-    const moving = speed > MOVING_EPSILON && !settling;
-    const resting = state.paused && !moving;
+    // Standing still is one state now that both loops brake rather than freeze: the walk clip
+    // runs down to nothing and the child's standing pose takes over. What changes is which
+    // standing pose — on its own spot it sits the way it was composed to, and anywhere else it
+    // is a child who has stopped for a moment.
+    const atHome = state.kind === 'yard' ? state.exit <= 0 : state.clock.phase === 'home';
+    const outside = isPlaying(state);
+    const moving = speed > MOVING_EPSILON;
+    const resting = !moving && !atHome;
     body.speed = speed;
     body.moving = moving;
     body.resting = resting;
 
-    if (moving !== seen.current.moving || resting !== seen.current.resting) {
-      seen.current = { moving, resting };
-      setCoarse(seen.current);
-    }
+    publish({
+      moving,
+      resting,
+      running: speed >= RUN_AT * RUN_SPEED,
+      outside,
+      game: state.game,
+    });
   });
 
   return coarse;

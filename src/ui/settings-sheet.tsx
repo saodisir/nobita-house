@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { type RefObject, useEffect, useRef, useState } from 'react';
 import { isSfxEnabled, setSfxEnabled } from '../audio/sfx';
+import { useT } from '../i18n/use-i18n';
 import { useAppStore } from '../state/store';
 import { ResetIcon } from './icons';
 import { VolumeSlider } from './music-player';
@@ -47,6 +48,7 @@ export function SettingsSheet({ id, open, onClose, triggerRef, music, compact }:
   const [sfxOn, setSfxOn] = useState(isSfxEnabled);
   const resetView = useAppStore((s) => s.resetView);
   const sheetRef = useRef<HTMLElement>(null);
+  const t = useT();
 
   useDismiss(
     open,
@@ -68,7 +70,7 @@ export function SettingsSheet({ id, open, onClose, triggerRef, music, compact }:
           ref={sheetRef}
           id={id}
           className="panel settings"
-          aria-label="Settings"
+          aria-label={t('settings')}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 12 }}
@@ -77,11 +79,11 @@ export function SettingsSheet({ id, open, onClose, triggerRef, music, compact }:
           {compact && (
             <>
               <div className="settings__row">
-                Time of day
+                {t('settingsTimeOfDay')}
                 <TimeOfDayControl />
               </div>
               <SwitchRow
-                label="Rain"
+                label={t('settingsRain')}
                 checked={raining}
                 onToggle={() => setWeather(raining ? 'clear' : 'rain')}
               />
@@ -97,15 +99,15 @@ export function SettingsSheet({ id, open, onClose, triggerRef, music, compact }:
               onClose();
             }}
           >
-            Reset view
+            {t('settingsResetView')}
             <ResetIcon />
           </button>
-          <SwitchRow label="Auto-rotate" checked={autoRotate} onToggle={toggleAutoRotate} />
+          <SwitchRow label={t('settingsAutoRotate')} checked={autoRotate} onToggle={toggleAutoRotate} />
           <div className="settings__row">
             <VolumeSlider volume={music.volume} onChange={music.setVolume} />
           </div>
           <SwitchRow
-            label="Sound effects"
+            label={t('settingsSfx')}
             checked={sfxOn}
             onToggle={() => {
               const next = !sfxOn;
@@ -113,7 +115,7 @@ export function SettingsSheet({ id, open, onClose, triggerRef, music, compact }:
               setSfxOn(next);
             }}
           />
-          <SwitchRow label="Show performance" checked={showPerf} onToggle={togglePerf} />
+          <SwitchRow label={t('settingsPerf')} checked={showPerf} onToggle={togglePerf} />
           <StudioLink className="settings__row settings__link" />
         </motion.section>
       )}

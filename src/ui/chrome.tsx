@@ -4,9 +4,12 @@ import { startRainSound } from '../audio/rain-sound';
 import { config } from '../config';
 import { characters } from '../data/characters';
 import { roomById } from '../data/rooms';
+import { pick } from '../i18n/locale';
+import { useLocale, useT } from '../i18n/use-i18n';
 import { usePerfStore } from '../state/perf-store';
 import { useAppStore } from '../state/store';
 import { SlidersIcon } from './icons';
+import { LangControl } from './lang-control';
 import { press } from './motion-presets';
 import { SoundControl } from './music-player';
 import { PlaceControl } from './place-control';
@@ -25,19 +28,21 @@ export const COMPACT_QUERY = '(max-width: 767px)';
 /** The house, and — once you are inside it — which room you are standing in, and where in it. */
 export function Title() {
   const activeRoomId = useAppStore((s) => s.activeRoomId);
+  const locale = useLocale();
+  const t = useT();
   const room = activeRoomId ? roomById(activeRoomId) : undefined;
   return (
     <header className="panel title">
-      <h1>Nobita&rsquo;s House</h1>
+      <h1>{t('appTitle')}</h1>
       {room ? (
         <p className="title__place">
-          {room.name}
+          {pick(room.name, locale)}
           <span className="title__jp" lang="ja">
             {room.kana}
           </span>
         </p>
       ) : (
-        <p>Doraemon &middot; 3D diorama</p>
+        <p>{t('tagline')}</p>
       )}
       <RoomViewPicker />
     </header>
@@ -55,6 +60,7 @@ export function Title() {
 export function ViewControls() {
   // Owned here, not in the sound button, so the bar's button and the settings sheet share one track.
   const music = useBackgroundMusic(config.music.src, config.music.volume);
+  const t = useT();
   // The rain's sound lives with the music: both belong to the diorama, not to the studio.
   useEffect(startRainSound, []);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -67,7 +73,7 @@ export function ViewControls() {
   // reducedMotion="user": under prefers-reduced-motion the chip and press transforms jump, fades stay.
   return (
     <MotionConfig reducedMotion="user">
-      <div className="panel controls" role="toolbar" aria-label="View">
+      <div className="panel controls" role="toolbar" aria-label={t('toolbar')}>
         <PlaceControl />
         <div className="controls__divider" aria-hidden="true" />
         <TourControl />
@@ -83,11 +89,13 @@ export function ViewControls() {
           </>
         )}
         <SoundControl music={music} />
+        <div className="controls__divider" aria-hidden="true" />
+        <LangControl />
         <motion.button
           ref={settingsRef}
           type="button"
-          aria-label="Settings"
-          title="Settings"
+          aria-label={t('settings')}
+          title={t('settings')}
           aria-expanded={settingsOpen}
           aria-controls={settingsId}
           onClick={() => setSettingsOpen((open) => !open)}
@@ -112,8 +120,10 @@ export function ViewControls() {
 export function Roster() {
   const selectedId = useAppStore((s) => s.selectedCharacterId);
   const select = useAppStore((s) => s.select);
+  const locale = useLocale();
+  const t = useT();
   return (
-    <nav className="panel roster" aria-label="Characters">
+    <nav className="panel roster" aria-label={t('roster')}>
       {characters.map((c) => (
         <button
           key={c.id}
@@ -123,7 +133,7 @@ export function Roster() {
           onClick={() => select(selectedId === c.id ? null : c.id)}
         >
           <span className="swatch" style={{ background: c.color }} aria-hidden="true" />
-          {c.shortName}
+          {pick(c.shortName, locale)}
         </button>
       ))}
     </nav>
@@ -142,28 +152,29 @@ const formatCount = (n: number) =>
  */
 export function PerfStats() {
   const sample = usePerfStore((s) => s.sample);
+  const t = useT();
   const dash = '—';
   return (
-    <section className="panel perf" aria-label="Performance">
+    <section className="panel perf" aria-label={t('perf')}>
       <p className="perf__fps" data-tier={sample ? fpsTier(sample.fps) : undefined}>
         <span className="perf__dot" aria-hidden="true" />
         <b>{sample ? Math.round(sample.fps) : dash}</b> FPS
       </p>
       <dl className="perf__grid">
         <div>
-          <dt>Frame</dt>
+          <dt>{t('perfFrame')}</dt>
           <dd>{sample ? `${sample.frameMs.toFixed(1)} ms` : dash}</dd>
         </div>
         <div>
-          <dt>Worst</dt>
+          <dt>{t('perfWorst')}</dt>
           <dd>{sample ? `${sample.worstMs.toFixed(1)} ms` : dash}</dd>
         </div>
         <div>
-          <dt>Draws</dt>
+          <dt>{t('perfDraws')}</dt>
           <dd>{sample ? sample.calls : dash}</dd>
         </div>
         <div>
-          <dt>Tris</dt>
+          <dt>{t('perfTris')}</dt>
           <dd>{sample ? formatCount(sample.triangles) : dash}</dd>
         </div>
       </dl>

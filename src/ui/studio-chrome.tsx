@@ -1,6 +1,8 @@
 import type { MotionEntry } from '../data/animations';
 import type { CharacterDef } from '../data/characters';
 import { characters } from '../data/characters';
+import { pick } from '../i18n/locale';
+import { useLocale, useT } from '../i18n/use-i18n';
 import { dioramaHref, linkProps, studioHref } from '../router';
 
 interface Props {
@@ -37,40 +39,43 @@ export function StudioChrome({
   modelMissing,
   loading,
 }: Props) {
+  const locale = useLocale();
+  const t = useT();
   const selected = entries.find((entry) => entry.id === clipId);
+  const short = pick(def.shortName, locale);
   return (
     <>
       <header className="panel studio-head">
         <a className="studio-back" {...linkProps(dioramaHref)}>
-          &larr; Diorama
+          &larr; {t('studioBack')}
         </a>
-        <h1>Character studio</h1>
-        <p>Every motion the model carries, one character at a time.</p>
+        <h1>{t('studioTitle')}</h1>
+        <p>{t('studioTagline')}</p>
       </header>
 
       <section className="panel studio-info" aria-labelledby="studio-name">
         <p className="eyebrow" style={{ color: def.color }}>
-          Character
+          {t('cardCharacter')}
         </p>
-        <h2 id="studio-name">{def.name}</h2>
+        <h2 id="studio-name">{pick(def.name, locale)}</h2>
         <p className="jp" lang="ja">
           {def.jpName}
         </p>
         <dl className="studio-stats">
           <div>
-            <dt>Height</dt>
+            <dt>{t('studioHeight')}</dt>
             <dd>{def.height.toFixed(2)} m</dd>
           </div>
           <div>
-            <dt>Stride</dt>
+            <dt>{t('studioStride')}</dt>
             <dd>{def.stride.toFixed(2)} m</dd>
           </div>
           <div>
-            <dt>Clips</dt>
+            <dt>{t('studioClips')}</dt>
             <dd>{entries.length}</dd>
           </div>
         </dl>
-        <p className="body">{def.bio}</p>
+        <p className="body">{pick(def.bio, locale)}</p>
       </section>
 
       {/* The roster and the motion bar share the bottom edge on a phone, so they are one stack
@@ -78,7 +83,7 @@ export function StudioChrome({
           clip count and used to cover the roster outright. `display: contents` on desktop leaves
           each panel's own positioning untouched. */}
       <div className="studio-dock">
-        <nav className="panel studio-roster" aria-label="Characters">
+        <nav className="panel studio-roster" aria-label={t('roster')}>
           {characters.map((c) => (
             <a
               key={c.id}
@@ -87,24 +92,24 @@ export function StudioChrome({
               {...linkProps(studioHref(c.id))}
             >
               <span className="swatch" style={{ background: c.color }} aria-hidden="true" />
-              {c.shortName}
+              {pick(c.shortName, locale)}
             </a>
           ))}
         </nav>
 
-        <section className="panel studio-motions" aria-label="Motion">
+        <section className="panel studio-motions" aria-label={t('studioMotion')}>
           {entries.length === 0 ? (
             <p className="studio-empty">
               {modelMissing
-                ? `${def.shortName}'s model is not built yet — the stage shows a placeholder.`
+                ? t('studioMissing', { name: short })
                 : loading
-                  ? `Loading ${def.shortName}…`
-                  : `${def.shortName} carries no animation clips yet. The Mixamo motion set lands with the pipeline in phase 3.`}
+                  ? t('studioLoading', { name: short })
+                  : t('studioNoClips', { name: short })}
             </p>
           ) : (
             <>
               <fieldset className="studio-chips">
-                <legend className="sr-only">Motion clips</legend>
+                <legend className="sr-only">{t('studioMotionClips')}</legend>
                 {entries.map((entry) => (
                   <button
                     key={entry.id}
@@ -112,15 +117,17 @@ export function StudioChrome({
                     aria-pressed={entry.id === clipId}
                     onClick={() => onClip(entry.id)}
                   >
-                    {entry.label}
+                    {pick(entry.label, locale)}
                   </button>
                 ))}
               </fieldset>
-              <p className="studio-clip-note">{selected?.description ?? 'Pick a motion.'}</p>
+              <p className="studio-clip-note">
+                {selected ? pick(selected.description, locale) : t('studioPick')}
+              </p>
             </>
           )}
           <div className="studio-row">
-            <label htmlFor="studio-speed">Speed</label>
+            <label htmlFor="studio-speed">{t('studioSpeed')}</label>
             <input
               id="studio-speed"
               type="range"
@@ -132,10 +139,10 @@ export function StudioChrome({
             />
             <output htmlFor="studio-speed">{speed.toFixed(2)}&times;</output>
             <button type="button" aria-pressed={loop} disabled={!clipId} onClick={() => onLoop(!loop)}>
-              Loop
+              {t('studioLoop')}
             </button>
             <button type="button" aria-pressed={spin} onClick={() => onSpin(!spin)}>
-              Turntable
+              {t('studioTurntable')}
             </button>
           </div>
         </section>

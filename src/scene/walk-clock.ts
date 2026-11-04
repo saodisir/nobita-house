@@ -18,6 +18,11 @@ export interface WalkClock {
   d: number;
   /** Ground speed, m/s, never negative; `dir` carries the sign. */
   speed: number;
+  /**
+   * The speed this walker is trying to reach, m/s. Walking pace on the pavement, running pace
+   * out in the vacant lot: the same walker on the same lap, changing pace with the ground.
+   */
+  cruise: number;
   dir: 1 | -1;
   phase: WalkPhase;
   /** The way home, chosen once when the return begins. */
@@ -27,7 +32,7 @@ export interface WalkClock {
 }
 
 export function createWalkClock(): WalkClock {
-  return { d: 0, speed: 0, dir: 1, phase: 'home', homeDir: 1, hold: 0 };
+  return { d: 0, speed: 0, cruise: WALK_SPEED, dir: 1, phase: 'home', homeDir: 1, hold: 0 };
 }
 
 const mod = (a: number, m: number) => ((a % m) + m) % m;
@@ -45,8 +50,18 @@ function brakeToward(c: WalkClock, dir: 1 | -1, dt: number) {
  * Advance by `dt` seconds. With `walkMode` on, walk forward at `WALK_SPEED` (braking and
  * turning round first if heading home backwards). Off, head for the nearest whole lap and
  * brake so `d` lands exactly on it, then rest at home with `d = 0`.
+ *
+ * `clearAhead` is the empty road in front of this walker, metres, after the gap it means to
+ * keep. It caps the pace the way arriving home does — from `sqrt(2·a·s)`, so a child pulls up
+ * exactly on the gap rather than walking into the one in front — and is unbounded by default,
+ * which is a walker with nobody in front of it.
  */
-export function advanceWalkClock(c: WalkClock, dt: number, walkMode: boolean) {
+export function advanceWalkClock(
+  c: WalkClock,
+  dt: number,
+  walkMode: boolean,
+  clearAhead = Number.POSITIVE_INFINITY,
+) {
   const step = Math.min(Math.max(dt, 0), MAX_DT);
   const lap = WALK_LOOP_LENGTH;
 
@@ -75,12 +90,24 @@ export function advanceWalkClock(c: WalkClock, dt: number, walkMode: boolean) {
   if (c.dir !== want) {
     brakeToward(c, want, step);
   } else if (walkMode) {
-    c.speed = Math.min(WALK_SPEED, c.speed + ACCEL * step);
+    // Two ceilings: the pace this ground asks for, and how fast the road ahead allows. Braking
+    // and speeding up both run at `ACCEL`, so a child dropping out of a run into the pavement
+    // checks its speed over half a second instead of stopping dead at the kerb.
+    const ceiling = Math.min(c.cruise, Math.sqrt(2 * ACCEL * Math.max(0, clearAhead)));
+    c.speed =
+      c.speed > ceiling
+        ? Math.max(ceiling, c.speed - ACCEL * step)
+        : Math.min(ceiling, c.speed + ACCEL * step);
   } else {
     // Distance still to go the way we are walking; braking at `ACCEL` from `sqrt(2·a·s)`
-    // stops exactly on the boundary.
+    // stops exactly on the boundary. Coming home is a walk, however fast it was running: a
+    // child called in from the vacant lot slows to a walk on the way, not at the door.
     const remaining = c.dir > 0 ? (c.d === 0 ? 0 : lap - c.d) : c.d;
-    c.speed = Math.min(WALK_SPEED, c.speed + ACCEL * step, Math.sqrt(2 * ACCEL * remaining));
+    const ceiling = Math.min(WALK_SPEED, Math.sqrt(2 * ACCEL * remaining));
+    c.speed =
+      c.speed > ceiling
+        ? Math.max(ceiling, c.speed - ACCEL * step)
+        : Math.min(ceiling, c.speed + ACCEL * step);
     if (c.speed * step >= remaining - 1e-6) {
       c.d = 0;
       c.speed = 0;

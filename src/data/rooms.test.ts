@@ -75,11 +75,17 @@ describe('recovered content', () => {
 
   it('keeps the card prose: 2-4 sentences, no placeholder', () => {
     for (const hotspot of roomHotspots) {
-      expect(hotspot.title.length, hotspot.id).toBeGreaterThan(10);
-      const sentences = hotspot.body.split(/(?<=\.)\s+/).filter(Boolean);
-      expect(sentences.length, `${hotspot.id} sentence count`).toBeGreaterThanOrEqual(2);
-      expect(sentences.length, `${hotspot.id} sentence count`).toBeLessThanOrEqual(4);
-      expect(hotspot.body, hotspot.id).not.toMatch(/TODO|TBD|Lorem/i);
+      expect(hotspot.title.en.length, hotspot.id).toBeGreaterThan(10);
+      // Chinese says the same in a third of the characters, so the floor is lower.
+      expect(hotspot.title.zh.length, `${hotspot.id} zh title`).toBeGreaterThan(3);
+      for (const locale of ['en', 'zh'] as const) {
+        const body = hotspot.body[locale];
+        // Chinese ends a sentence on a full stop of its own; there is no space to split on.
+        const sentences = body.split(locale === 'en' ? /(?<=\.)\s+/ : /(?<=。)/).filter(Boolean);
+        expect(sentences.length, `${hotspot.id} ${locale} sentence count`).toBeGreaterThanOrEqual(2);
+        expect(sentences.length, `${hotspot.id} ${locale} sentence count`).toBeLessThanOrEqual(4);
+        expect(body, `${hotspot.id} ${locale}`).not.toMatch(/TODO|TBD|Lorem/i);
+      }
     }
   });
 });

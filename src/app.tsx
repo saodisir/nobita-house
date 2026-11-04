@@ -6,6 +6,8 @@ import { config } from './config';
 import { characters } from './data/characters';
 import { residents, residentsEnabled } from './data/residents';
 import { roomById } from './data/rooms';
+import { pick } from './i18n/locale';
+import { useLocale, useT } from './i18n/use-i18n';
 import { PerfProbe } from './scene/perf-probe';
 import { Scene } from './scene/scene';
 import { preflightModels, useAppStore } from './state/store';
@@ -13,6 +15,7 @@ import { PerfStats, Title, ViewControls } from './ui/chrome';
 import { InfoCard } from './ui/info-card';
 import { LoadingVeil } from './ui/loading-veil';
 import { MenusToggle } from './ui/menus-toggle';
+import { PoseBar } from './ui/pose-bar';
 import { RoofControl } from './ui/roof-control';
 import { type PlacedPin, RoomPins, RoomPinTracker } from './ui/room-pins';
 
@@ -47,6 +50,8 @@ export function App() {
   const room = useAppStore((s) => (s.activeRoomId ? roomById(s.activeRoomId) : undefined));
   const showPerf = useAppStore((s) => s.showPerf);
   const walking = useAppStore((s) => s.freeWalk);
+  const locale = useLocale();
+  const t = useT();
 
   useEffect(() => {
     document.body.setAttribute('aria-busy', 'true');
@@ -68,9 +73,7 @@ export function App() {
         }}
         role="img"
         aria-label={
-          room
-            ? `Inside Nobita's house from Doraemon, standing in one room: ${room.name} (${room.kana}).`
-            : "Nobita's house from Doraemon seen from the street: a two-storey cream house under red tile roofs behind a concrete block wall, with six children gathered at the front gate — two sitting on the wall, one on the pavement, three standing. Press Stroll to send three of them round the yard and three along the street."
+          room ? t('canvasInside', { room: pick(room.name, locale), kana: room.kana }) : t('canvasStreet')
         }
       >
         <Scene />
@@ -108,26 +111,27 @@ export function App() {
           />
         </MotionConfig>
         <InfoCard />
+        <PoseBar />
         <RoomPins placed={pins} />
         {walking && (
           <div className="walk-hint" role="status">
             <span>
-              <b>Click</b> to look
+              <b>{t('hintClick')}</b> {t('hintLook')}
             </span>
             <span>
-              <b>WASD</b> move
+              <b>WASD</b> {t('hintMove')}
             </span>
             <span>
-              <b>Shift</b> run
+              <b>Shift</b> {t('hintRun')}
             </span>
             <span>
-              <b>Stairs</b> climb
+              <b>{t('hintStairs')}</b> {t('hintClimb')}
             </span>
             <span>
-              <b>E</b> jump floors
+              <b>E</b> {t('hintFloors')}
             </span>
             <span>
-              <b>Esc</b> release mouse
+              <b>Esc</b> {t('hintRelease')}
             </span>
           </div>
         )}

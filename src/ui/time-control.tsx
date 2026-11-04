@@ -1,5 +1,7 @@
 import { motion } from 'motion/react';
 import { timesOfDay } from '../data/time-of-day';
+import { pick } from '../i18n/locale';
+import { useLocale, useT } from '../i18n/use-i18n';
 import { useAppStore } from '../state/store';
 import { RainIcon, TimeOfDayIcon } from './icons';
 import { press } from './motion-presets';
@@ -16,11 +18,13 @@ import { press } from './motion-presets';
 export function TimeOfDayControl() {
   const timeOfDay = useAppStore((s) => s.timeOfDay);
   const setTimeOfDay = useAppStore((s) => s.setTimeOfDay);
+  const locale = useLocale();
+  const t = useT();
   return (
     <fieldset className="controls__group controls__segmented controls__times">
-      <legend className="sr-only">Time of day</legend>
+      <legend className="sr-only">{t('settingsTimeOfDay')}</legend>
       {timesOfDay.map((preset) => (
-        <label key={preset.id} data-time={preset.id} title={preset.label}>
+        <label key={preset.id} data-time={preset.id} title={pick(preset.label, locale)}>
           <input
             type="radio"
             name="time-of-day"
@@ -30,7 +34,7 @@ export function TimeOfDayControl() {
           />
           <span className="controls__segment">
             <TimeOfDayIcon id={preset.id} />
-            <span className="sr-only">{preset.label}</span>
+            <span className="sr-only">{pick(preset.label, locale)}</span>
           </span>
           {timeOfDay === preset.id && (
             <motion.span
@@ -55,16 +59,17 @@ export function TimeOfDayControl() {
 export function RainToggle() {
   const raining = useAppStore((s) => s.weather === 'rain');
   const setWeather = useAppStore((s) => s.setWeather);
+  const t = useT();
   return (
     <motion.button
       type="button"
       aria-pressed={raining}
-      title="Rain"
+      title={t('settingsRain')}
       onClick={() => setWeather(raining ? 'clear' : 'rain')}
       whileTap={press}
     >
       <RainIcon />
-      <span className="sr-only">Rain</span>
+      <span className="sr-only">{t('settingsRain')}</span>
     </motion.button>
   );
 }

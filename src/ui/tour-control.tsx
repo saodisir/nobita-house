@@ -1,6 +1,8 @@
 import { motion } from 'motion/react';
 import { roomById } from '../data/rooms';
 import { tourStops } from '../data/tour';
+import { pick } from '../i18n/locale';
+import { useLocale, useT } from '../i18n/use-i18n';
 import { useAppStore } from '../state/store';
 import { ChevronLeftIcon, ChevronRightIcon, CloseIcon, PlayIcon } from './icons';
 import { press } from './motion-presets';
@@ -16,26 +18,29 @@ export function TourControl() {
   const startTour = useAppStore((s) => s.startTour);
   const tourGo = useAppStore((s) => s.tourGo);
   const exitTour = useAppStore((s) => s.exitTour);
+  const locale = useLocale();
+  const t = useT();
 
   if (tourIndex === null) {
     return (
-      <motion.button type="button" onClick={startTour} whileTap={press} title="Tour the house">
+      <motion.button type="button" onClick={startTour} whileTap={press} title={t('tourStartTitle')}>
         <PlayIcon />
-        <span className="tour__start">Tour</span>
+        <span className="tour__start">{t('tourStart')}</span>
       </motion.button>
     );
   }
 
   const stop = tourStops[tourIndex];
-  const name = (stop?.roomId ? roomById(stop.roomId)?.shortName : undefined) ?? 'Street';
+  const room = stop?.roomId ? roomById(stop.roomId) : undefined;
+  const name = room ? pick(room.shortName, locale) : t('placeStreet');
   const last = tourStops.length - 1;
 
   return (
-    <fieldset className="controls__group tour" aria-label="House tour">
+    <fieldset className="controls__group tour" aria-label={t('tourGroup')}>
       <motion.button
         type="button"
-        aria-label="Previous stop"
-        title="Previous stop"
+        aria-label={t('tourPrevious')}
+        title={t('tourPrevious')}
         disabled={tourIndex === 0}
         onClick={() => tourGo(-1)}
         whileTap={press}
@@ -50,8 +55,8 @@ export function TourControl() {
       </span>
       <motion.button
         type="button"
-        aria-label="Next stop"
-        title="Next stop"
+        aria-label={t('tourNext')}
+        title={t('tourNext')}
         disabled={tourIndex === last}
         onClick={() => tourGo(1)}
         whileTap={press}
@@ -60,8 +65,8 @@ export function TourControl() {
       </motion.button>
       <motion.button
         type="button"
-        aria-label="Exit tour"
-        title="Exit tour"
+        aria-label={t('tourExit')}
+        title={t('tourExit')}
         onClick={exitTour}
         whileTap={press}
       >

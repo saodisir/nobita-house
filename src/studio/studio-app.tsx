@@ -4,6 +4,8 @@ import { NoToneMapping, SRGBColorSpace } from 'three';
 import { config } from '../config';
 import { listMotions, motionById } from '../data/animations';
 import { type CharacterDef, characterById, characters } from '../data/characters';
+import { pick } from '../i18n/locale';
+import { useLocale, useT } from '../i18n/use-i18n';
 import { navigate, studioHref } from '../router';
 import { preflightModels, useAppStore } from '../state/store';
 import '../styles/studio.css';
@@ -78,8 +80,11 @@ export default function StudioApp({ characterId }: { characterId: string | null 
     },
     [clipId],
   );
+  const locale = useLocale();
+  const t = useT();
   const entries = listMotions(clipNames);
-  const playing = clipId ? (motionById(clipId)?.label ?? clipId) : 'nothing';
+  const motion = clipId ? motionById(clipId) : undefined;
+  const playing = clipId ? (motion ? pick(motion.label, locale) : clipId) : t('studioNothing');
 
   return (
     <>
@@ -91,7 +96,7 @@ export default function StudioApp({ characterId }: { characterId: string | null 
         // Same neutral pipeline as the diorama, so a character looks identical on both pages.
         gl={{ antialias: true, toneMapping: NoToneMapping, outputColorSpace: SRGBColorSpace }}
         role="img"
-        aria-label={`${def.name} standing on a studio turntable, playing ${playing}.`}
+        aria-label={t('studioScene', { name: pick(def.name, locale), motion: playing })}
       >
         <StudioScene def={def} clipId={clipId} loop={loop} speed={speed} spin={spin} onClips={onClips} />
       </Canvas>

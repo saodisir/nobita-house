@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'motion/react';
 import { type FocusEvent, type PointerEvent, useEffect, useId, useRef, useState } from 'react';
+import { useT } from '../i18n/use-i18n';
 import { SpeakerIcon } from './icons';
 import { press } from './motion-presets';
 import type { BackgroundMusic } from './use-background-music';
@@ -25,6 +26,7 @@ export function SoundControl({ music }: { music: BackgroundMusic }) {
   const pressTimer = useRef<number | undefined>(undefined);
   const longPressed = useRef(false);
   const open = !dismissed && (hovered || focused || pinned);
+  const t = useT();
 
   useDismiss(open, () => {
     setPinned(false);
@@ -110,11 +112,11 @@ export function SoundControl({ music }: { music: BackgroundMusic }) {
       onFocus={onFocus}
       onBlur={onBlur}
     >
-      <legend className="sr-only">Music</legend>
+      <legend className="sr-only">{t('music')}</legend>
       <motion.button
         type="button"
         aria-pressed={playing}
-        title="Music"
+        title={t('music')}
         onClick={onClick}
         onPointerDown={onPressStart}
         onPointerUp={cancelPress}
@@ -124,14 +126,14 @@ export function SoundControl({ music }: { music: BackgroundMusic }) {
         whileTap={press}
       >
         <SpeakerIcon muted={!playing || volume === 0} />
-        <span className="sr-only">Music</span>
+        <span className="sr-only">{t('music')}</span>
       </motion.button>
       <AnimatePresence>
         {open && (
           <motion.div
             className="panel sound__popover"
             role="group"
-            aria-label="Music volume"
+            aria-label={t('musicVolume')}
             initial={{ opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.94 }}
@@ -149,9 +151,10 @@ export function SoundControl({ music }: { music: BackgroundMusic }) {
 export function VolumeSlider({ volume, onChange }: { volume: number; onChange: (volume: number) => void }) {
   const id = useId();
   const percent = Math.round(volume * 100);
+  const t = useT();
   return (
     <div className="volume-slider">
-      <label htmlFor={id}>Volume</label>
+      <label htmlFor={id}>{t('settingsVolume')}</label>
       <input
         id={id}
         type="range"

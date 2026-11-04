@@ -24,7 +24,9 @@ describe('motion catalog', () => {
   it('shows an unknown clip instead of dropping it', () => {
     const entries = listMotions(['welcome', 'cartwheel']);
     expect(entries.map((e) => e.id)).toEqual(['welcome', 'cartwheel']);
-    expect(entries[1]).toMatchObject({ label: 'Cartwheel', known: false });
+    // The GLB's own name is all there is for a clip the catalog has never seen, in both
+    // languages: inventing a translation for it would be inventing the clip.
+    expect(entries[1]).toMatchObject({ label: { en: 'cartwheel', zh: 'cartwheel' }, known: false });
   });
   it('is empty for a model with no clips', () => {
     expect(listMotions([])).toEqual([]);

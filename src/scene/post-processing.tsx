@@ -1,4 +1,12 @@
-import { Bloom, BrightnessContrast, EffectComposer, HueSaturation, N8AO, Noise, Vignette } from '@react-three/postprocessing';
+import {
+  Bloom,
+  BrightnessContrast,
+  EffectComposer,
+  HueSaturation,
+  N8AO,
+  Noise,
+  Vignette,
+} from '@react-three/postprocessing';
 import { BlendFunction } from 'postprocessing';
 
 /**

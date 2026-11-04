@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { type UIKey, useT } from '../i18n/use-i18n';
 import { type DioramaStage, useAppStore } from '../state/store';
 
 /**
@@ -19,10 +20,10 @@ import { type DioramaStage, useAppStore } from '../state/store';
  * upper floor's slab is the ground floor's ceiling, so without it the ground floor stays sealed
  * however high the roof goes.
  */
-const STAGES: readonly { stage: DioramaStage; label: string; title: string }[] = [
-  { stage: 0, label: 'Shut', title: 'The house as built' },
-  { stage: 1, label: 'Roof', title: 'Roof off: look down into the upstairs rooms' },
-  { stage: 2, label: '2F', title: 'Upper floor slid aside: see the whole ground floor' },
+const STAGES: readonly { stage: DioramaStage; label: UIKey; title: UIKey }[] = [
+  { stage: 0, label: 'roofStageShut', title: 'roofShutTitle' },
+  { stage: 1, label: 'roofStageRoof', title: 'roofRoofTitle' },
+  { stage: 2, label: 'roofStage2F', title: 'roof2FTitle' },
 ];
 
 export function RoofControl() {
@@ -31,26 +32,27 @@ export function RoofControl() {
   const aerial = useAppStore((s) => s.aerialView);
   const toggleAerial = useAppStore((s) => s.toggleAerial);
   const freeWalk = useAppStore((s) => s.freeWalk);
+  const t = useT();
   // Standing inside, the roof is a ceiling: there is nothing to lift it above.
   if (freeWalk) return null;
   return (
     <motion.div className="panel roof" initial={false}>
       {/* The whole house, taken apart — read out once, from the fieldset's legend, not twice. */}
       <span className="roof__label" aria-hidden="true">
-        Lift
+        {t('roofLift')}
       </span>
       <fieldset className="roof__stages">
-        <legend className="sr-only">How far to take the house apart</legend>
+        <legend className="sr-only">{t('roofLegend')}</legend>
         {STAGES.map(({ stage: value, label, title }) => (
           <button
             key={value}
             type="button"
             className="roof__stage"
             aria-pressed={stage === value}
-            title={title}
+            title={t(title)}
             onClick={() => setStage(value)}
           >
-            {label}
+            {t(label)}
           </button>
         ))}
       </fieldset>
@@ -59,9 +61,9 @@ export function RoofControl() {
         className="roof__aerial"
         aria-pressed={aerial}
         onClick={toggleAerial}
-        title={aerial ? 'Back to the street' : 'Open the house and look down into it'}
+        title={t(aerial ? 'walkOutTitle' : 'roofAerialTitle')}
       >
-        Aerial
+        {t('roofAerial')}
       </button>
     </motion.div>
   );

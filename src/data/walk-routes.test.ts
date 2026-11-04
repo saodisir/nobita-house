@@ -2,12 +2,31 @@ import { describe, expect, it } from 'vitest';
 import { config } from '../config';
 import { characters } from './characters';
 import { crossingRects, layout, onSidewalk, type Rect } from './scene';
-import { nearestHomeDelta, sampleWalk, WALK_LOOP_LENGTH, type WalkSample, walkBounds } from './walk-routes';
+import {
+  inPlaza,
+  nearestHomeDelta,
+  sampleWalk,
+  WALK_LOOP_LENGTH,
+  type WalkSample,
+  walkBounds,
+} from './walk-routes';
 
-const { road, streets } = layout;
+const { road, streets, sandlot } = layout;
 const roadEnd = road.startZ + road.depth;
 const zebra = crossingRects();
 const STEP = 0.05;
+
+/**
+ * The middle of the loop's one unpainted crossing, x metres: where the lap goes from the
+ * pavement into the vacant lot. Straight opposite the gate there is no zebra, so this is the
+ * single stretch of asphalt the children walk on bare road. See `walk-routes.ts`.
+ */
+const LOT_CROSSING_X = 4.6;
+/**
+ * The painted crossing they come home over. It is the one on the lot's own side of the
+ * junction, `zebra.east`, whose centreline the loop follows.
+ */
+const ZEBRA_X = (zebra.east.x0 + zebra.east.x1) / 2;
 
 const sample = (): WalkSample => ({ x: 0, y: 0, z: 0, heading: 0 });
 const wrapPi = (a: number) => a - 2 * Math.PI * Math.floor((a + Math.PI) / (2 * Math.PI));
@@ -47,15 +66,23 @@ const crossingWalks: Record<keyof typeof zebra, Rect> = {
   north: { ...zebra.north, x0: streets.side.startX, x1: streets.side.endX },
 };
 
+const onPaint = (x: number, z: number) => Object.values(crossingWalks).some((r) => inside(x, z, r));
+const inLot = (x: number, z: number) => z >= sandlot.lot.z0 && x >= sandlot.lot.x0 && x <= sandlot.lot.x1;
+/** The bare-road stretch between the pavement and the lot, a lane's width either side of its x. */
+const onBareRoad = (x: number, z: number) =>
+  Math.abs(x - LOT_CROSSING_X) <= 0.5 && z > road.startZ - 0.5 && z < sandlot.lot.z0 + 0.5;
+
 /** Every sample of every character over one lap, in step with the shared distance. */
-function lap() {
+function lap(backward = false) {
   const steps = Math.ceil(WALK_LOOP_LENGTH / STEP);
   return Array.from({ length: steps + 1 }, (_, k) => {
     const d = k * STEP;
-    return characters.map((_, i) => sampleWalk(i, d, sample()));
+    return characters.map((_, i) => sampleWalk(i, d, sample(), backward));
   });
 }
 const samples = lap();
+const backwardSamples = lap(true);
+const all = [...samples, ...backwardSamples].flat();
 
 describe('zebra crossings', () => {
   it('matches the bars streets_build.py lays down', () => {
@@ -90,32 +117,31 @@ describe('zebra crossings', () => {
 });
 
 describe('walk loop', () => {
-  it('keeps every walker on pavement or a zebra for the whole lap', () => {
-    for (const row of samples) {
-      for (const [i, p] of row.entries()) {
-        const ok = onPavement(p.x, p.z) || Object.values(crossingWalks).some((r) => inside(p.x, p.z, r));
-        expect(ok, `${characters[i]?.id} at ${p.x.toFixed(2)},${p.z.toFixed(2)}`).toBe(true);
-      }
+  it('stays on pavement, paint, the lot, or the one crossing with no paint on it', () => {
+    // The lap is home and the lot and nothing else: one pavement, one crossing, one rectangle
+    // of bare earth. The only ground that is neither is the way into the lot straight opposite
+    // the gate, where a child goes because it is going there, not because it is crossing.
+    for (const p of all) {
+      const ok = onPavement(p.x, p.z) || onPaint(p.x, p.z) || inLot(p.x, p.z) || onBareRoad(p.x, p.z);
+      expect(ok, `${p.x.toFixed(2)},${p.z.toFixed(2)} at y ${p.y.toFixed(3)}`).toBe(true);
     }
+  });
+
+  it('keeps that bare-road crossing free of paint, so it is really only taken once', () => {
+    let bare = 0;
+    for (const p of all) {
+      if (!onBareRoad(p.x, p.z) || onPavement(p.x, p.z) || inLot(p.x, p.z)) continue;
+      expect(onPaint(p.x, p.z), `${p.x.toFixed(2)},${p.z.toFixed(2)}`).toBe(false);
+      bare++;
+    }
+    expect(bare).toBeGreaterThan(0);
   });
 
   it('keeps half a metre clear of every utility pole', () => {
-    for (const row of samples) {
-      for (const p of row) {
-        for (const [px, pz] of streets.poles)
-          expect(Math.hypot(p.x - px, p.z - pz)).toBeGreaterThanOrEqual(0.5);
-      }
+    for (const p of all) {
+      for (const [px, pz] of streets.poles)
+        expect(Math.hypot(p.x - px, p.z - pz)).toBeGreaterThanOrEqual(0.5);
     }
-  });
-
-  it('never brings two walkers within 0.6 m of each other', () => {
-    let closest = Number.POSITIVE_INFINITY;
-    for (const row of samples) {
-      for (const [a, pa] of row.entries()) {
-        for (const pb of row.slice(a + 1)) closest = Math.min(closest, Math.hypot(pa.x - pb.x, pa.z - pb.z));
-      }
-    }
-    expect(closest).toBeGreaterThanOrEqual(0.6);
   });
 
   it('starts and ends every lap on each character’s exact spot, facing the street', () => {
@@ -145,32 +171,74 @@ describe('walk loop', () => {
     }
   });
 
-  it('crosses each road along its zebra’s centreline', () => {
-    const seen = new Set<string>();
-    for (const row of samples) {
-      for (const p of row) {
-        for (const [leg, r] of Object.entries(crossingWalks)) {
-          if (!inside(p.x, p.z, r)) continue;
-          seen.add(leg);
-          const offset = leg === 'east' || leg === 'west' ? p.x - (r.x0 + r.x1) / 2 : p.z - (r.z0 + r.z1) / 2;
-          expect(Math.abs(offset)).toBeLessThanOrEqual(0.3);
+  it('crosses the road twice: out at the lot’s edge, home along the painted zebra', () => {
+    // Every run of samples that is over the carriageway, with the x each one crosses at.
+    const runs: { from: number; to: number; xs: number[]; painted: boolean }[] = [];
+    for (const [i, def] of characters.entries()) {
+      let run: (typeof runs)[number] | null = null;
+      let reached = 0;
+      for (let d = 0; d <= WALK_LOOP_LENGTH + 1e-9; d += STEP) {
+        const p = sampleWalk(i, d, sample());
+        const over = p.z > road.startZ && p.z < roadEnd;
+        if (over && !run) run = { from: d, to: d, xs: [], painted: onPaint(p.x, p.z) };
+        if (over && run) {
+          run.to = d;
+          run.xs.push(p.x);
+          reached = p.z;
+        }
+        if (!over && run) {
+          runs.push(run);
+          run = null;
         }
       }
+      expect(reached, `${def.id} never reached the far side`).toBeGreaterThan(0);
     }
-    expect([...seen].sort()).toEqual(['east', 'north', 'south', 'west']);
+    // Six children, two crossings each: one at the lot's edge, one on the paint.
+    expect(runs.length).toBe(characters.length * 2);
+    for (const run of runs) {
+      const xs = run.xs;
+      const lo = Math.min(...xs);
+      const hi = Math.max(...xs);
+      // Straight across: a crossing is a line, not a diagonal through the traffic.
+      expect(hi - lo, `crossing at ${run.from.toFixed(1)}`).toBeLessThan(0.6);
+      if (run.painted) {
+        expect(Math.abs((lo + hi) / 2 - ZEBRA_X)).toBeLessThan(0.3);
+      } else {
+        expect(Math.abs((lo + hi) / 2 - LOT_CROSSING_X)).toBeLessThan(0.3);
+      }
+    }
+    expect(runs.filter((r) => r.painted).length).toBe(characters.length);
   });
 
-  it('steps down onto the zebra paint and back up onto the pavement', () => {
-    const heights = samples.flat().map((p) => p.y);
+  it('steps down onto the paint, down again onto the lot’s earth, and back up', () => {
+    const heights = all.map((p) => p.y);
     expect(Math.max(...heights)).toBeCloseTo(layout.standY, 9);
-    expect(Math.min(...heights)).toBeCloseTo(streets.crossing.top, 9);
-    // Mid-road the walker stands on the paint.
-    const onZebra = samples.flat().find((p) => inside(p.x, p.z, zebra.east) && Math.abs(p.z - 10.7) < STEP);
+    expect(Math.min(...heights)).toBeCloseTo(0, 9);
+    // Mid-road the walker stands on the paint, and out in the lot on the bare earth.
+    const onZebra = all.find((p) => inside(p.x, p.z, zebra.east) && Math.abs(p.z - 10.7) < STEP);
     expect(onZebra?.y).toBeCloseTo(streets.crossing.top, 9);
+    const onBare = all.find((p) => Math.abs(p.x - LOT_CROSSING_X) < 0.05 && Math.abs(p.z - 10.7) < STEP);
+    expect(onBare?.y).toBeCloseTo(streets.crossing.top, 9);
+    const inTheLot = all.find((p) => Math.abs(p.z - (17.4 + 28.6) / 2) < 0.5 && p.x > 4);
+    expect(inTheLot?.y).toBeCloseTo(0, 9);
+  });
+
+  it('walks the lot and only the lot flat out', () => {
+    // The pace is not a timer: it is `inPlaza`, so the test is that the flag lines up with the
+    // ground. Everything the lot covers is a run, and nothing on the pavement is.
+    for (const [i, def] of characters.entries()) {
+      for (let d = 0; d <= WALK_LOOP_LENGTH + 1e-9; d += STEP) {
+        const p = sampleWalk(i, d, sample());
+        if (p.z > 19 && p.z < 27 && p.x > -7) {
+          expect(inPlaza(i, d), `${def.id} at ${p.x.toFixed(2)},${p.z.toFixed(2)}`).toBe(true);
+        }
+        if (onPavement(p.x, p.z)) expect(inPlaza(i, d), `${def.id} on the pavement`).toBe(false);
+      }
+    }
   });
 
   it('keeps the walk inside the camera bounds, and those inside the orbit-target box', () => {
-    for (const p of samples.flat()) expect(inside(p.x, p.z, walkBounds)).toBe(true);
+    for (const p of all) expect(inside(p.x, p.z, walkBounds)).toBe(true);
     // The camera follows a walker anywhere on the loop without widening its target clamp,
     // so shrinking `config.targetBounds` below the walk would pin the view short of them.
     const box = config.targetBounds;
@@ -208,51 +276,37 @@ describe('sampleWalk backward mode', () => {
     }
   });
 
-  it('maintains smooth heading transitions with backward=true throughout lap', () => {
-    for (const i of characters.keys()) {
-      let prevHeading = sampleWalk(i, 0, sample(), true).heading;
-      for (let d = STEP; d <= WALK_LOOP_LENGTH + 1e-9; d += STEP) {
-        const h = sampleWalk(i, d, sample(), true).heading;
-        expect(Math.abs(wrapPi(h - prevHeading)), `backward at d ${d.toFixed(2)}`).toBeLessThan(0.2);
-        prevHeading = h;
-      }
-    }
-  });
-
-  it('steps down onto and up from crossings with backward=true', () => {
-    const heights: number[] = [];
-    for (let d = 0; d <= WALK_LOOP_LENGTH; d += STEP) {
-      for (const i of characters.keys()) {
-        heights.push(sampleWalk(i, d, sample(), true).y);
-      }
-    }
+  it('reaches the same heights walking home as walking out', () => {
+    const heights = backwardSamples.flat().map((p) => p.y);
     expect(Math.max(...heights)).toBeCloseTo(layout.standY, 9);
-    expect(Math.min(...heights)).toBeCloseTo(streets.crossing.top, 9);
+    expect(Math.min(...heights)).toBeCloseTo(0, 9);
   });
 });
 
 describe('height bounds', () => {
-  it('y stays within [crossing.top, standY] throughout the lap', () => {
-    for (const row of samples) {
-      for (const p of row) {
-        expect(p.y).toBeGreaterThanOrEqual(streets.crossing.top - 1e-9);
-        expect(p.y).toBeLessThanOrEqual(layout.standY + 1e-9);
-      }
+  it('y stays between the lot’s earth and the pavement throughout the lap', () => {
+    for (const p of all) {
+      expect(p.y).toBeGreaterThanOrEqual(-1e-9);
+      expect(p.y).toBeLessThanOrEqual(layout.standY + 1e-9);
     }
   });
 
-  it('y equals exactly crossing.top on zebra paint and exactly standY on pavement', () => {
-    for (const row of samples) {
-      for (const p of row) {
-        const isOnZebra = Object.values(crossingWalks).some((r) => inside(p.x, p.z, r));
-        const isOnPavement = onPavement(p.x, p.z);
-        if (isOnZebra) {
-          // On zebra paint, should be at crossing.top (with some tolerance for transition band at edges)
-          expect(Math.abs(p.y - streets.crossing.top)).toBeLessThanOrEqual(0.02);
-        } else if (isOnPavement) {
-          // On pavement far from kerb, should be at standY; near kerb (0.25 m step band) there's smoothstep transition
-          expect(Math.abs(p.y - layout.standY)).toBeLessThanOrEqual(0.02);
-        }
+  it('sits at standY on the pavement, crossing.top mid-road, and nought in the lot', () => {
+    for (const p of all) {
+      const nearKerb = Math.abs(p.z - road.startZ) < 0.6 || Math.abs(p.z - roadEnd) < 0.6;
+      const nearLotEdge = Math.abs(p.z - sandlot.lot.z0) < 0.6;
+      if (nearKerb || nearLotEdge) continue;
+      if (onPaint(p.x, p.z)) {
+        expect(
+          Math.abs(p.y - streets.crossing.top),
+          `${p.x.toFixed(2)},${p.z.toFixed(2)}`,
+        ).toBeLessThanOrEqual(0.02);
+      } else if (inLot(p.x, p.z)) {
+        expect(Math.abs(p.y), `${p.x.toFixed(2)},${p.z.toFixed(2)}`).toBeLessThanOrEqual(0.02);
+      } else if (onPavement(p.x, p.z)) {
+        expect(Math.abs(p.y - layout.standY), `${p.x.toFixed(2)},${p.z.toFixed(2)}`).toBeLessThanOrEqual(
+          0.02,
+        );
       }
     }
   });

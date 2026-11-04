@@ -1,8 +1,11 @@
+import type { Localized } from '../i18n/locale';
+
 export type TimeOfDayId = 'dawn' | 'morning' | 'sunset' | 'night';
 
 export interface TimeOfDayPreset {
   id: TimeOfDayId;
-  label: string;
+  /** Tooltip and accessible name of the segment; the buttons themselves are icons only. */
+  label: Localized;
   /** Sun direction in metres. Drives the sky's sun glow and the shadow-casting key light
    * together: if the two ever diverge, the shadows contradict the sky. */
   sun: readonly [number, number, number];
@@ -39,7 +42,7 @@ export interface TimeOfDayPreset {
  * matched to the hero reference, whose sky above the rooftops measures #78BEFC. */
 const MORNING: TimeOfDayPreset = {
   id: 'morning',
-  label: 'Morning',
+  label: { en: 'Morning', zh: '清晨' },
   sun: [-3.9, 14, -13.5],
   zenith: '#6AB4F6',
   sunGlow: { color: '#FFF4DC', strength: 0.3 },
@@ -64,7 +67,7 @@ const MORNING: TimeOfDayPreset = {
 export const timesOfDay: readonly TimeOfDayPreset[] = [
   {
     id: 'dawn',
-    label: 'Dawn',
+    label: { en: 'Dawn', zh: '黎明' },
     sun: [-3.9, 2.6, -13.5],
     zenith: '#6D86C4',
     sunGlow: { color: '#FFC89A', strength: 0.9 },
@@ -83,7 +86,7 @@ export const timesOfDay: readonly TimeOfDayPreset[] = [
   MORNING,
   {
     id: 'sunset',
-    label: 'Sunset',
+    label: { en: 'Sunset', zh: '黄昏' },
     sun: [-3.9, 3.2, -13.5],
     zenith: '#4A5AA6',
     sunGlow: { color: '#FF9A4E', strength: 1.1 },
@@ -101,7 +104,7 @@ export const timesOfDay: readonly TimeOfDayPreset[] = [
   },
   {
     id: 'night',
-    label: 'Night',
+    label: { en: 'Night', zh: '夜晚' },
     // The moonlight. The moon is drawn on this azimuth (see `displayMoonDirection`), which puts
     // it left of the house in the default view, so shadows fall away from where it hangs. The
     // day sun shares this azimuth, so both discs occupy the same spot of the sky.

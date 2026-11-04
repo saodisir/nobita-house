@@ -28,6 +28,8 @@ interface Options {
   hasWalkClip?: boolean;
   /** Holding an authored resting clip (idle or a sit): the procedural breath and sway step aside. */
   resting?: boolean;
+  /** Faster than a walk: more bounce, more lean, no waddle. */
+  running?: boolean;
 }
 
 /**
@@ -65,7 +67,10 @@ export function useCharacterMotion(ref: RefObject<Group | null>, opts: Options) 
     if (greetStart.current === -1) greetStart.current = now;
 
     const speed = poseFor(id).speed;
+    // `gait` saturates at a walking pace — a run is not more of the same walk — so the extra
+    // bounce and lean of running come from `rush` on top of it.
     const gait = Math.min(1, speed / WALK_SPEED);
+    const rush = opts.running ? 1 : 0;
     // An authored resting clip already breathes; the procedural idle would bounce on top of it.
     const idle = opts.resting ? 0 : 1 - gait;
     // Two steps per stride; one |sin| bump per step, one sin swing per stride. The cycle
@@ -79,12 +84,13 @@ export function useCharacterMotion(ref: RefObject<Group | null>, opts: Options) 
     const t = now * Math.PI * 2 + phase;
     const breath = Math.sin(t * BREATH_HZ);
     let lift =
-      breath * 0.006 * height * idle + Math.abs(step) * 0.02 * height * gait * (hasWalkClip ? 0.5 : 1);
+      breath * 0.006 * height * idle +
+      Math.abs(step) * 0.02 * height * gait * (hasWalkClip ? 0.5 : 1) * (1 + rush * 0.9);
     let squash = 1 - breath * 0.007 * idle;
     let yaw = Math.sin(t * SWAY_HZ) * 0.022 * idle;
-    const roll = hasWalkClip ? 0 : step * 0.05 * gait;
+    const roll = hasWalkClip ? 0 : step * 0.05 * gait * (1 - rush);
     // Top of the body toward local +Z, the way the character faces.
-    const lean = 0.06 * gait;
+    const lean = 0.06 * gait + 0.1 * rush;
 
     const start = greetStart.current;
     if (start !== null) {

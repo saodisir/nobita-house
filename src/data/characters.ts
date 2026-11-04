@@ -1,3 +1,4 @@
+import type { Localized } from '../i18n/locale';
 import { layout } from './scene';
 
 /** A looping clip a character holds at home instead of standing, and where it puts the body. */
@@ -10,9 +11,9 @@ export interface RestPose {
 
 export interface CharacterDef {
   id: string;
-  name: string;
+  name: Localized;
   /** Label for chips and roster buttons. */
-  shortName: string;
+  shortName: Localized;
   jpName: string;
   /** Canon height in metres; drives proxy size and GLB normalisation in Blender. */
   height: number;
@@ -43,9 +44,15 @@ export interface CharacterDef {
    * out on the street. The yard loop is per child, so the three there never walk in step.
    */
   wander: 'street' | 'yard';
+  /**
+   * Goes indoors now and then, on the walk in `house-path.ts`: out of the yard, through the
+   * front door, down the hall and into the 居間, then back out. Off for everyone but Nobita —
+   * the house is his, and one child at a time is what a ten-mat room holds without a crowd.
+   */
+  indoor?: true;
   /** Signature colour used for the proxy body and the info-card eyebrow. */
   color: string;
-  bio: string;
+  bio: Localized;
 }
 
 /**
@@ -71,8 +78,8 @@ const onWall = (seat: number, originZ: number, anchorZ: number): [number, number
 export const characters: CharacterDef[] = [
   {
     id: 'jaian',
-    name: 'Takeshi "Gian" Goda',
-    shortName: 'Gian',
+    name: { en: 'Takeshi "Gian" Goda', zh: '刚田武「胖虎」' },
+    shortName: { en: 'Gian', zh: '胖虎' },
     jpName: '剛田 武',
     height: 1.57,
     // Mixamo humanoid rig on Dekisugi's shared clips: the `walk` root travel the merge script
@@ -87,12 +94,15 @@ export const characters: CharacterDef[] = [
     rest: { clip: 'sit-wall-laugh', offset: onWall(0.12, 5.72, 6.2) },
     wander: 'street',
     color: '#F0801E',
-    bio: 'The neighbourhood strongman and self-appointed singer. "What’s yours is mine, what’s mine is mine" — but when it truly matters, Gian is the friend who never runs.',
+    bio: {
+      en: 'The neighbourhood strongman and self-appointed singer. "What’s yours is mine, what’s mine is mine" — but when it truly matters, Gian is the friend who never runs.',
+      zh: '街区里最强壮的孩子，也是自封的歌手。信奉「你的就是我的，我的还是我的」——可真到要紧关头，胖虎是从不跑掉的那个朋友。',
+    },
   },
   {
     id: 'shizuka',
-    name: 'Shizuka Minamoto',
-    shortName: 'Shizuka',
+    name: { en: 'Shizuka Minamoto', zh: '源静香' },
+    shortName: { en: 'Shizuka', zh: '静香' },
     jpName: '源 静香',
     height: 1.38,
     // Mixamo humanoid rig on Dekisugi's shared clips: the source `walk` travel (0.97 m) times
@@ -107,12 +117,15 @@ export const characters: CharacterDef[] = [
     rest: { clip: 'think', offset: [0, 0, 0] },
     wander: 'yard',
     color: '#F07EA8',
-    bio: 'The kind, level-headed girl next door and the one person who never gives up on Nobita. Loves baths, sweet potatoes and the violin, though nobody survives her playing.',
+    bio: {
+      en: 'The kind, level-headed girl next door and the one person who never gives up on Nobita. Loves baths, sweet potatoes and the violin, though nobody survives her playing.',
+      zh: '温柔又沉得住气的邻家女孩，也是唯一一个从没放弃过大雄的人。喜欢泡澡、烤红薯和小提琴——只是没人受得了她的琴声。',
+    },
   },
   {
     id: 'nobita',
-    name: 'Nobita Nobi',
-    shortName: 'Nobita',
+    name: { en: 'Nobita Nobi', zh: '野比大雄' },
+    shortName: { en: 'Nobita', zh: '大雄' },
     jpName: '野比 のび太',
     height: 1.4,
     // Mixamo humanoid rig on Dekisugi's shared clips: the `walk` root travel the merge script
@@ -128,13 +141,17 @@ export const characters: CharacterDef[] = [
     rotationY: 0,
     rest: { clip: 'sitting-pose', offset: [0, -0.031, 0] },
     wander: 'yard',
+    indoor: true,
     color: '#F5C21B',
-    bio: 'Lazy, clumsy and hopeless at school, yet unbeatable at shooting and cat’s cradle. Nobita’s big heart is the reason Doraemon stays, and this is his house.',
+    bio: {
+      en: 'Lazy, clumsy and hopeless at school, yet unbeatable at shooting and cat’s cradle. Nobita’s big heart is the reason Doraemon stays, and this is his house.',
+      zh: '懒散、笨手笨脚、功课一塌糊涂，可打靶和翻花绳从没输过。哆啦A梦之所以留下来，是因为大雄的心地；而这里就是他的家。',
+    },
   },
   {
     id: 'doraemon',
-    name: 'Doraemon',
-    shortName: 'Doraemon',
+    name: { en: 'Doraemon', zh: '哆啦A梦' },
+    shortName: { en: 'Doraemon', zh: '哆啦A梦' },
     jpName: 'ドラえもん',
     height: 1.29,
     // Mixamo humanoid rig on Dekisugi's shared clips since 2026-09-13: the `walk` root travel
@@ -147,12 +164,15 @@ export const characters: CharacterDef[] = [
     rest: { clip: 'stand-cheerful', offset: [0, 0, 0] },
     wander: 'yard',
     color: '#0A9DE8',
-    bio: 'A cat-shaped robot sent from the 22nd century by Nobita’s great-great-grandson to steer his ancestor toward a better future. Carries every gadget in his four-dimensional pocket, is terrified of mice, and would do anything for a dorayaki.',
+    bio: {
+      en: 'A cat-shaped robot sent from the 22nd century by Nobita’s great-great-grandson to steer his ancestor toward a better future. Carries every gadget in his four-dimensional pocket, is terrified of mice, and would do anything for a dorayaki.',
+      zh: '22 世纪送来的猫型机器人，派他来的是大雄的曾孙，为的是把祖先的人生扳向更好的方向。四次元口袋里装着各式法宝，最怕老鼠，为了一块铜锣烧什么都肯做。',
+    },
   },
   {
     id: 'suneo',
-    name: 'Suneo Honekawa',
-    shortName: 'Suneo',
+    name: { en: 'Suneo Honekawa', zh: '骨川小夫' },
+    shortName: { en: 'Suneo', zh: '小夫' },
     jpName: '骨川 スネ夫',
     // Dekisugi's height, not Suneo's canon 1.35 m (user decision 2026-09-13): at 1.35 m the
     // sculpt's big head, hands and shoes read as a stunted body.
@@ -170,12 +190,15 @@ export const characters: CharacterDef[] = [
     rest: { clip: 'sit-wall-talk', offset: onWall(0.25, 5.74, 6.2) },
     wander: 'street',
     color: '#5CB85C',
-    bio: 'Rich, vain and quick to brag about whatever his family bought this week. Gian’s sidekick, Nobita’s rival, and secretly the most sensitive of the group.',
+    bio: {
+      en: 'Rich, vain and quick to brag about whatever his family bought this week. Gian’s sidekick, Nobita’s rival, and secretly the most sensitive of the group.',
+      zh: '家境富裕，爱面子，家里这周买了什么他总要第一个说出来。胖虎的跟班，大雄的对手，其实是几个人里心最细的那个。',
+    },
   },
   {
     id: 'dekisugi',
-    name: 'Hidetoshi Dekisugi',
-    shortName: 'Dekisugi',
+    name: { en: 'Hidetoshi Dekisugi', zh: '出木杉英才' },
+    shortName: { en: 'Dekisugi', zh: '出木杉' },
     jpName: '出木杉 英才',
     height: 1.42,
     // Mixamo humanoid rig: the ground his `walk` clip covers per cycle, measured in Blender
@@ -192,7 +215,10 @@ export const characters: CharacterDef[] = [
     rest: { clip: 'talk', offset: [0, 0, 0] },
     wander: 'street',
     color: '#3FA08C',
-    bio: 'Top of the class, kind to everyone, and effortlessly good at everything Nobita is not. The only rival Doraemon’s gadgets cannot beat, which is exactly why Nobita worries about him and Shizuka.',
+    bio: {
+      en: 'Top of the class, kind to everyone, and effortlessly good at everything Nobita is not. The only rival Doraemon’s gadgets cannot beat, which is exactly why Nobita worries about him and Shizuka.',
+      zh: '成绩第一，待人客气，凡是大雄不擅长的，他都毫不费力地擅长。他是哆啦A梦的法宝唯一赢不了的对手——也正因如此，大雄才总担心他和静香。',
+    },
   },
 ];
 

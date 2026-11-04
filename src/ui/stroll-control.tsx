@@ -1,4 +1,5 @@
 import { motion } from 'motion/react';
+import { useT } from '../i18n/use-i18n';
 import { useAppStore } from '../state/store';
 import { CloseIcon } from './icons';
 import { press } from './motion-presets';
@@ -33,6 +34,7 @@ function CrowdIcon() {
 export function StrollControl() {
   const strolling = useAppStore((s) => s.walkMode);
   const toggle = useAppStore((s) => s.toggleWalkMode);
+  const t = useT();
 
   return (
     <motion.button
@@ -40,10 +42,10 @@ export function StrollControl() {
       onClick={toggle}
       whileTap={press}
       aria-pressed={strolling}
-      title={strolling ? 'Call them back' : 'Let them out'}
+      title={t(strolling ? 'strollBackTitle' : 'strollOutTitle')}
     >
       {strolling ? <CloseIcon /> : <CrowdIcon />}
-      <span className="walk__label">{strolling ? 'Back' : 'Stroll'}</span>
+      <span className="walk__label">{t(strolling ? 'strollBack' : 'strollOut')}</span>
     </motion.button>
   );
 }

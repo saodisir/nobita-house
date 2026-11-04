@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { characterById } from '../data/characters';
 import { roomHotspots } from '../data/room-hotspots';
+import { pick } from '../i18n/locale';
+import { useLocale, useT } from '../i18n/use-i18n';
 import { useAppStore } from '../state/store';
 
 /**
@@ -14,7 +16,10 @@ export function InfoCard() {
   const hotspotId = useAppStore((s) => s.selectedRoomHotspot);
   const select = useAppStore((s) => s.select);
   const selectRoomHotspot = useAppStore((s) => s.selectRoomHotspot);
+  const possess = useAppStore((s) => s.possess);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const locale = useLocale();
+  const t = useT();
 
   const character = activeRoomId === null && selectedId ? characterById(selectedId) : undefined;
   const hotspot =
@@ -48,11 +53,14 @@ export function InfoCard() {
   if (character) {
     return (
       <Card
-        eyebrow="Character"
+        eyebrow={t('cardCharacter')}
         eyebrowColor={character.color}
-        title={character.name}
+        title={pick(character.name, locale)}
         jp={character.jpName}
-        body={character.bio}
+        body={pick(character.bio, locale)}
+        // Opening a card and taking the child by the hand are two different things, so they are
+        // two different gestures: a click looks, this button drives.
+        action={{ label: t('cardPossess'), onClick: () => possess(character.id) }}
         closeRef={closeRef}
         onClose={close}
       />
@@ -61,9 +69,9 @@ export function InfoCard() {
   if (hotspot) {
     return (
       <Card
-        eyebrow="In this room"
-        title={hotspot.title}
-        body={hotspot.body}
+        eyebrow={t('cardInThisRoom')}
+        title={pick(hotspot.title, locale)}
+        body={pick(hotspot.body, locale)}
         closeRef={closeRef}
         onClose={close}
       />
@@ -78,6 +86,7 @@ function Card({
   title,
   jp,
   body,
+  action,
   closeRef,
   onClose,
 }: {
@@ -86,9 +95,11 @@ function Card({
   title: string;
   jp?: string;
   body: string;
+  action?: { label: string; onClick: () => void };
   closeRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
+  const t = useT();
   return (
     <section className="panel card" role="dialog" aria-modal="false" aria-labelledby="card-title">
       <p className="eyebrow" style={eyebrowColor ? { color: eyebrowColor } : undefined}>
@@ -101,7 +112,12 @@ function Card({
         </p>
       )}
       <p className="body">{body}</p>
-      <button ref={closeRef} type="button" className="close" aria-label="Close" onClick={onClose}>
+      {action && (
+        <button type="button" className="card__action" onClick={action.onClick}>
+          {action.label}
+        </button>
+      )}
+      <button ref={closeRef} type="button" className="close" aria-label={t('cardClose')} onClick={onClose}>
         &times;
       </button>
     </section>

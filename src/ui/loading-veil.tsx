@@ -1,11 +1,13 @@
 import { useProgress } from '@react-three/drei';
 import { useEffect, useState } from 'react';
+import { useT } from '../i18n/use-i18n';
 import { useAppStore } from '../state/store';
 
 /** Paper plate loading screen; removed from the DOM after the fade so it never blocks the canvas. */
 export function LoadingVeil() {
   const { progress, loaded, total, active } = useProgress();
   const preflightDone = useAppStore((s) => s.preflightDone);
+  const t = useT();
   const [gone, setGone] = useState(false);
   // With no GLBs on disk nothing ever loads and progress stays 0, so completion is "nothing in flight".
   const done = preflightDone && !active && loaded === total;
@@ -22,22 +24,20 @@ export function LoadingVeil() {
   return (
     <div className="veil" data-done={done}>
       <div className="plate">
-        <h1>Nobita&rsquo;s House</h1>
-        <p className="sub">A 3D diorama &middot; Doraemon fan project</p>
+        <h1>{t('appTitle')}</h1>
+        <p className="sub">{t('veilTagline')}</p>
         <div
           className="track"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={pct}
-          aria-label="Loading models"
+          aria-label={t('veilLoading')}
         >
           <div className="fill" style={{ width: `${pct}%` }} />
         </div>
         <div className="meta">
-          <span>
-            {loaded} / {total} models
-          </span>
+          <span>{t('veilModels', { loaded, total })}</span>
           <span>{pct}%</span>
         </div>
       </div>
