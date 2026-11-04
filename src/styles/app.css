@@ -17,6 +17,11 @@ canvas {
   touch-action: none;
   display: block;
 }
+/* First person has exactly one pointer: the reticle in the middle of the frame. Hide the
+   system cursor, which would otherwise sit wherever the button that started the walk was. */
+canvas.canvas--first-person {
+  cursor: none;
+}
 button {
   font: inherit;
   color: inherit;
@@ -976,6 +981,35 @@ button.settings__row:hover,
   }
 }
 
+/* First person: the one pointer. A ring and a dot, small enough to stay out of the view yet
+   legible against both a sunlit wall and a dark interior; it never takes the pointer itself. */
+.reticle {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
+  border: 1.5px solid rgb(255 255 255 / 88%);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 38%),
+    inset 0 0 0 1px rgb(0 0 0 / 38%);
+  pointer-events: none;
+}
+.reticle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 3px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 45%);
+}
+
 /* Walking: a pill at the bottom that names the five keys, in the order they are reached for.
    It is chrome over the render, so it never takes the pointer — a click has to reach the canvas
    to lock the mouse. */
@@ -1107,12 +1141,6 @@ button.settings__row:hover,
   background: var(--paper-100);
   color: var(--ink-900);
   box-shadow: 0 1px 2px rgb(40 30 20 / 12%);
-}
-.view__note {
-  margin: 0 2px;
-  font-size: 11px;
-  line-height: 1.5;
-  color: var(--ink-500);
 }
 
 /* --- driving a child -------------------------------------------------------------------

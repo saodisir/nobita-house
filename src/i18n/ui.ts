@@ -70,11 +70,6 @@ export const UI = {
     zh: '从上方俯视，房顶保持你选的状态',
   },
   viewLift: { en: 'Lift the roof', zh: '掀开房顶' },
-  viewHint: {
-    en: 'Aerial and lift are independent: look down with the roof on, or lift just the floor you want.',
-    zh: '俯瞰和掀顶互不牵连：可以盖着屋顶俯视，也可以只掀想看的那一层。',
-  },
-  viewWalkNote: { en: 'Lifting the roof waits until you leave the walk.', zh: '退出漫游后才能掀开房顶。' },
   roofLegend: { en: 'How far to take the house apart', zh: '房子拆到哪一步' },
   roofStageShut: { en: 'Shut', zh: '关闭' },
   roofStageRoof: { en: 'Roof', zh: '掀顶' },
@@ -110,8 +105,8 @@ export const UI = {
 
   // --- taking a child by the hand ------------------------------------------------------------
   cardPossess: { en: 'Take control', zh: '操纵这个角色' },
-  cardDriveFirst: { en: 'Walk in their eyes', zh: '以 TA 的眼睛走' },
-  cardDriveThird: { en: 'Follow behind', zh: '跟着 TA 走' },
+  cardDriveFirst: { en: 'First person', zh: '第一人称' },
+  cardDriveThird: { en: 'Third person', zh: '第三人称' },
   poseView: { en: 'Camera', zh: '视角' },
   poseViewFirst: { en: 'First person', zh: '第一人称' },
   poseViewThird: { en: 'Third person', zh: '第三人称' },

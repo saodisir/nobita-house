@@ -105,7 +105,6 @@ export function ViewControl() {
                 </button>
               ))}
             </fieldset>
-            <p className="view__note">{freeWalk ? t('viewWalkNote') : t('viewHint')}</p>
           </motion.div>
         )}
       </AnimatePresence>

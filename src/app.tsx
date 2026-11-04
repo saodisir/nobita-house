@@ -49,6 +49,7 @@ export function App() {
   const room = useAppStore((s) => (s.activeRoomId ? roomById(s.activeRoomId) : undefined));
   const showPerf = useAppStore((s) => s.showPerf);
   const walking = useAppStore((s) => s.freeWalk);
+  const driveView = useAppStore((s) => s.driveView);
   // A driven child has its own bar on the same bottom edge; the hint belongs to the visitor
   // walking on their own feet.
   const drivingSelf = useAppStore((s) => s.possessedId === null);
@@ -83,6 +84,9 @@ export function App() {
         {showPerf && <PerfProbe />}
       </Canvas>
       <div id="ui-root">
+        {/* First person casts every click from the middle of the frame. Show that centre, so a
+            locked — or refused-lock — pointer never has to be guessed at. */}
+        {walking && driveView === 'first' && <div className="reticle" aria-hidden="true" />}
         {/* Hidden menus stay mounted (unmounting the toolbar would stop the music): they fade out,
             then become invisible and inert so they drop out of the tab order and hit testing. */}
         <MotionConfig reducedMotion="user">

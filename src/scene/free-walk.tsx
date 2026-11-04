@@ -430,6 +430,10 @@ export function FreeWalk() {
     const canvas = gl.domElement;
     let dragging = false;
     let lastPointer = { x: 0, y: 0 };
+    let pressAt: { x: number; y: number } | null = null;
+    let lockTried = false;
+    /** A press that travelled this far was a look-around drag, not a click on the reticle. */
+    const PRESS_SLOP = 4;
     const lock = () => {
       const request = canvas.requestPointerLock?.();
       if (request && typeof request.catch === 'function') request.catch(() => {});
@@ -459,29 +463,39 @@ export function FreeWalk() {
     const onDown = (e: MouseEvent) => {
       dragging = true;
       lastPointer = { x: e.clientX, y: e.clientY };
+      pressAt = { x: e.clientX, y: e.clientY };
     };
     const onUp = () => {
       dragging = false;
     };
     /**
-     * A press while the pointer is locked belongs to the crosshair, not to R3F. Under pointer
-     * lock the mouse has no screen position and only `movementX/Y` changes, so R3F keeps
-     * raycasting from wherever the lock began: a door under the crosshair would never be hit,
-     * and a stray press could pick a child on the other side of the frame. Catch the press on
-     * the document in the capture phase — before it can reach the canvas — and cast our own ray.
+     * A press in first person belongs to the reticle in the middle of the frame, never to the
+     * mouse's screen position. Locked, that position does not exist; free, it is wherever the
+     * button that started the walk was left — often off to one side, so R3F's own raycast would
+     * open a different door, or none at all, depending on how the walk began. Take the press in
+     * the capture phase, before it can reach the canvas, and cast one ray from the centre in
+     * both cases. The reticle drawn in `app.tsx` is that centre, so the aim is never a guess.
      */
     const onPress = (e: MouseEvent) => {
       const state = useAppStore.getState();
       if (state.driveView !== 'first') return;
-      if (document.pointerLockElement !== canvas) {
-        // Pointer lock can be refused (embedded frames, some browsers). The drag fallback in
-        // `onMove` still turns the head, and R3F keeps its ordinary pointer clicks.
-        if (e.target === canvas) lock();
-        return;
-      }
       // The chrome sits in the same document: never swallow a press meant for a real button.
       if (e.target !== canvas) return;
       e.stopPropagation();
+
+      const locked = document.pointerLockElement === canvas;
+      // In the refused-lock fallback a drag turns the head. Its trailing click is not a press.
+      // A locked pointer reports frozen coordinates, so no drag test is needed (or meaningful).
+      const from = pressAt;
+      pressAt = null;
+      if (!locked && from && Math.hypot(e.clientX - from.x, e.clientY - from.y) > PRESS_SLOP) return;
+
+      // Ask for mouse-look once. A browser that refuses it keeps the drag fallback, and the
+      // centre ray below is the aim either way.
+      if (!locked && !lockTried) {
+        lockTried = true;
+        lock();
+      }
       const door = doorAtCrosshair(camera, scene);
       if (door) state.toggleDoor(door);
     };
@@ -559,15 +573,21 @@ export function FreeWalk() {
     };
   }, [active, subjectId, camera, gl, scene]);
 
-  /** The lens is the only thing a view change touches: field of view and pointer lock. */
+  /** The lens is the only thing a view change touches: field of view, pointer lock, cursor. */
   useEffect(() => {
     if (!active) return;
+    const canvas = gl.domElement;
     const perspective = camera as typeof camera & { fov: number; updateProjectionMatrix: () => void };
     perspective.fov = driveView === 'first' ? WALK_FOV : config.camera.fov;
     perspective.updateProjectionMatrix();
-    if (driveView === 'third' && document.pointerLockElement === gl.domElement) {
+    // First person hides the system pointer: the reticle is the only aim, and a cursor left over
+    // from the button that started the walk would contradict it. Third person needs it back for
+    // the orbit and for ordinary clicks on the scene.
+    canvas.classList.toggle('canvas--first-person', driveView === 'first');
+    if (driveView === 'third' && document.pointerLockElement === canvas) {
       document.exitPointerLock?.();
     }
+    return () => canvas.classList.remove('canvas--first-person');
   }, [active, driveView, camera, gl]);
 
   useFrame((_, delta) => {
