@@ -11,6 +11,7 @@ import { characterPoses, poseFor } from '../state/character-poses';
 import { clearOccupiedDoors, markDoorOccupied } from '../state/door-occupancy';
 import { type DriveView, useAppStore } from '../state/store';
 import { inSwing, SWING_SWEEPS } from './door-sweep';
+import { furnitureBoxes } from './furniture-colliders';
 
 /**
  * Walking the lot on your own feet, or in a child's.
@@ -26,12 +27,14 @@ import { inSwing, SWING_SWEEPS } from './door-sweep';
  * priority 1 so the orbit's easing can never pull the eye out of a wall. In third person this
  * stops writing the camera altogether and `CameraRig` follows `walkerPose` instead.
  *
- * Collision is axis-aligned boxes read from the same `plan.ts` that builds the walls, so a wall
- * that moves in the plan moves here too. Openings whose sill sits at floor level are passable;
- * windows are not. A door is a wall while it is shut: its box is read back from the plan and
- * dropped as soon as `openDoors` says the leaf has moved. The lot's boundary wall comes from
- * `layout`, split around the gate; the back-yard shed comes from `shed.ts`, four walls and a
- * doorway that the drawn shell shares. A leaf refuses to move at all while the walker stands
+ * Collision is axis-aligned boxes read from the same `plan.ts` that builds the walls and draws
+ * the furniture, so anything moved in the plan moves here too. Openings whose sill sits at floor
+ * level are passable; windows are not. Flat rugs, things standing on another piece and anything
+ * a foot can step over are left out of the furniture colliders. A door is a wall while it is
+ * shut: its box is read back from the plan and dropped as soon as `openDoors` says the leaf has
+ * moved. The lot's boundary wall comes from `layout`, split around the gate; the back-yard shed
+ * comes from `shed.ts`, four walls and a doorway that the drawn shell shares. A leaf refuses to
+ * move at all while the walker stands
  * anywhere on its travel — the doorway, or the quarter-disc a hinged leaf sweeps — because a
  * collider cannot stop a swing. `publishOccupiedDoors()` tells the store which leaves to hold.
  *
@@ -167,9 +170,15 @@ const STAIR_RISE = (STAIRS.toY - STAIRS.fromY) / STAIRS.risers;
 /** The knee wall on the flight's hall side, carried as a solid: it is a wall from the waist up. */
 const STAIR_KNEE = rectToWorld({ x0: STAIR_WALL.x0, x1: STAIR_WALL.x1, z0: STAIRS.head, z1: STAIRS.foot });
 
-/** The shed's shell is four walls with a doorway, from the same `shed.ts` that draws it. */
-const GROUND_COLLIDERS = [...wallBoxes('ground'), ...lotBoxes(), STAIR_KNEE, ...shedWallRects()];
-const UPPER_COLLIDERS = [...wallBoxes('upper'), STAIR_KNEE];
+/** Everything statically solid on a storey; doors are added back per frame by `blocked()`. */
+const GROUND_COLLIDERS = [
+  ...wallBoxes('ground'),
+  ...lotBoxes(),
+  STAIR_KNEE,
+  ...shedWallRects(),
+  ...furnitureBoxes('ground'),
+];
+const UPPER_COLLIDERS = [...wallBoxes('upper'), STAIR_KNEE, ...furnitureBoxes('upper')];
 
 interface DoorBox {
   id: string;
@@ -251,9 +260,10 @@ function surfaceAt(x: number, z: number, storey: 'ground' | 'upper'): number | n
 }
 
 /**
- * Whether a walker of `RADIUS` at (x, z) overlaps a wall of the storey they are standing on.
- * `openDoors` is read every frame rather than baked into a constant: a leaf that swings open
- * clears the way in the same frame the animation starts, with no rebuild of the plan.
+ * Whether a walker of `RADIUS` at (x, z) overlaps a wall, a piece of furniture or a shut leaf
+ * of the storey they are standing on. `openDoors` is read every frame rather than baked into a
+ * constant: a leaf that swings open clears the way in the same frame the animation starts, with
+ * no rebuild of the plan.
  */
 function blocked(
   x: number,
@@ -565,9 +575,31 @@ export function FreeWalk() {
         const first = room?.rects[0];
         if (room && first) {
           const rect = rectToWorld(first);
-          position.current = { x: (rect.x0 + rect.x1) / 2, z: rect.z1 - 0.9 };
-          ground.current = room.floorY;
-          eye.current = room.floorY + eyeHeight.current;
+          const storey = goingUp ? ('upper' as const) : ('ground' as const);
+          const doors = useAppStore.getState().openDoors;
+          // Furniture is solid now, so the old fixed landing could put the walker inside a desk
+          // with no legal step out. Try that spot first, then a little sideways or deeper into
+          // the room, and take the first one standing on clear floor.
+          const cx = (rect.x0 + rect.x1) / 2;
+          const clear = (x: number, z: number) =>
+            !blocked(x, z, storey, doors) && surfaceAt(x, z, storey) !== null;
+          let landing: { x: number; z: number } | null = null;
+          for (const dz of [0.9, 0.5, 1.4, 1.9, 2.4]) {
+            for (const dx of [0, -0.45, 0.45, -0.9, 0.9]) {
+              const x = cx + dx;
+              const z = rect.z1 - dz;
+              if (clear(x, z)) {
+                landing = { x, z };
+                break;
+              }
+            }
+            if (landing) break;
+          }
+          if (landing) {
+            position.current = landing;
+            ground.current = room.floorY;
+            eye.current = room.floorY + eyeHeight.current;
+          }
         }
         pitch.current = 0;
         yaw.current = 0;
