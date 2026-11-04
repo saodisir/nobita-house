@@ -5,10 +5,12 @@ import { config } from '../config';
 import { characterById } from '../data/characters';
 import { rectToWorld } from '../data/house-site';
 import { layout } from '../data/scene';
+import { SHED, SHED_DOOR_ID, SHED_SWINGS, shedDoorRect, shedWallRects } from '../data/shed';
 import { LEVEL, type Rect, ROOMS, STAIR_WALL, STAIRS, STOREYS, WALLS } from '../editor/house/plan';
 import { characterPoses, poseFor } from '../state/character-poses';
 import { clearOccupiedDoors, markDoorOccupied } from '../state/door-occupancy';
 import { type DriveView, useAppStore } from '../state/store';
+import { inSwing, SWING_SWEEPS } from './door-sweep';
 
 /**
  * Walking the lot on your own feet, or in a child's.
@@ -28,10 +30,10 @@ import { type DriveView, useAppStore } from '../state/store';
  * that moves in the plan moves here too. Openings whose sill sits at floor level are passable;
  * windows are not. A door is a wall while it is shut: its box is read back from the plan and
  * dropped as soon as `openDoors` says the leaf has moved. The lot's boundary wall comes from
- * `layout`, split around the gate, and so does the back-yard shed, a solid box with no doorway.
- * A leaf also refuses to shut while the walker stands in its doorway: an open doorway is
- * passable by design, and a collider cannot stop the swing. `publishOccupiedDoors()` tells the
- * store which leaves to hold open.
+ * `layout`, split around the gate; the back-yard shed comes from `shed.ts`, four walls and a
+ * doorway that the drawn shell shares. A leaf refuses to move at all while the walker stands
+ * anywhere on its travel — the doorway, or the quarter-disc a hinged leaf sweeps — because a
+ * collider cannot stop a swing. `publishOccupiedDoors()` tells the store which leaves to hold.
  *
  * Height is a single field rather than two storeys with a teleport between them: the flight is
  * part of it, read from `STAIRS`, so walking to the back of the hall and up twelve treads lands
@@ -165,8 +167,8 @@ const STAIR_RISE = (STAIRS.toY - STAIRS.fromY) / STAIRS.risers;
 /** The knee wall on the flight's hall side, carried as a solid: it is a wall from the waist up. */
 const STAIR_KNEE = rectToWorld({ x0: STAIR_WALL.x0, x1: STAIR_WALL.x1, z0: STAIRS.head, z1: STAIRS.foot });
 
-/** The GLB's shed has no collision data of its own; its slab is the one truth for both layers. */
-const GROUND_COLLIDERS = [...wallBoxes('ground'), ...lotBoxes(), STAIR_KNEE, layout.shed];
+/** The shed's shell is four walls with a doorway, from the same `shed.ts` that draws it. */
+const GROUND_COLLIDERS = [...wallBoxes('ground'), ...lotBoxes(), STAIR_KNEE, ...shedWallRects()];
 const UPPER_COLLIDERS = [...wallBoxes('upper'), STAIR_KNEE];
 
 interface DoorBox {
@@ -207,7 +209,15 @@ function doorBoxes(storey: 'ground' | 'upper'): DoorBox[] {
   return boxes;
 }
 
-const GROUND_DOORS = doorBoxes('ground');
+/** The shed's leaf is not in `plan.ts`, but it is a door like any other: same box, same store
+ * state, same crosshair fallback, same reason to stay open when somebody is in its way. */
+const SHED_LEAF: DoorBox = {
+  id: SHED_DOOR_ID,
+  rect: shedDoorRect(),
+  y0: 0,
+  y1: SHED.base + SHED.height,
+};
+const GROUND_DOORS = [...doorBoxes('ground'), SHED_LEAF];
 const UPPER_DOORS = doorBoxes('upper');
 
 /** A locked pointer has no screen position: the crosshair is the middle of the canvas. */
@@ -262,20 +272,23 @@ function blocked(
 }
 
 /**
- * Doorways the walker is standing in, published once a frame for the store to refuse a close.
+ * Leaves whose travel the walker is standing on, published once a frame so the store can
+ * refuse to move them in either direction.
  *
  * An open leaf is a hole in the wall on purpose, so `blocked()` cannot keep a body out of the
- * space that leaf swings back into. The only honest answer is to leave the leaf open until the
- * doorway is clear. The same rect as the collider, with the walker's own radius: standing on
- * the threshold counts, standing in the room next door does not.
+ * space it swings back into; a hinged leaf also sweeps a quarter-disc beyond the frame. Neither
+ * motion can be stopped by a collider. Two tests, both padded by the walker's own radius: the
+ * doorway rectangle, and the quarter-disc of every hinged leaf on this storey.
  */
 function publishOccupiedDoors(x: number, z: number, storey: 'ground' | 'upper'): void {
   clearOccupiedDoors();
+  const overlaps = (b: Rect) =>
+    x > b.x0 - RADIUS && x < b.x1 + RADIUS && z > b.z0 - RADIUS && z < b.z1 + RADIUS;
   for (const door of storey === 'upper' ? UPPER_DOORS : GROUND_DOORS) {
-    const b = door.rect;
-    if (x > b.x0 - RADIUS && x < b.x1 + RADIUS && z > b.z0 - RADIUS && z < b.z1 + RADIUS) {
-      markDoorOccupied(door.id);
-    }
+    if (overlaps(door.rect)) markDoorOccupied(door.id);
+  }
+  for (const sweep of ALL_SWINGS) {
+    if (sweep.storey === storey && inSwing(sweep, x, z, RADIUS)) markDoorOccupied(sweep.id);
   }
 }
 
@@ -283,6 +296,8 @@ function publishOccupiedDoors(x: number, z: number, storey: 'ground' | 'upper'):
 const DOOR_HIT = new Vector3();
 const DOOR_VOLUME = new Box3();
 const ALL_DOORS = [...GROUND_DOORS, ...UPPER_DOORS];
+/** Every quarter-disc a leaf travels: the house's hinged doors and the shed's two leaves. */
+const ALL_SWINGS = [...SWING_SWEEPS, ...SHED_SWINGS];
 
 /**
  * The door the crosshair rests on, or null when a wall, glass or empty air is in the way.

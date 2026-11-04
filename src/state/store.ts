@@ -192,17 +192,18 @@ export const useAppStore = create<AppState>((set, get) => ({
   setDoorOpen: (id, open) =>
     set((s) => {
       if (s.openDoors[id] === open) return s;
-      // A leaf told to shut by a room view or a child coming back out is no different from a
-      // click: a body in the doorway keeps it open.
-      if (!open && doorOccupied(id)) return s;
+      // A leaf travels the same ground whichever way it is going. Somebody on that ground
+      // blocks both a shut leaf being pushed open and an open one being pulled shut, whether
+      // the request came from a click, a room view or a child on its way back outside.
+      if (doorOccupied(id)) return s;
       return { openDoors: { ...s.openDoors, [id]: open } };
     }),
   toggleDoor: (id) =>
     set((s) =>
       // `blocked()` drops a doorway's box as soon as the leaf opens, so the walker can stand in
-      // the very space that leaf returns to. Opening is always free; swinging shut through a
-      // body is not. The leaf stays open until the doorway is clear.
-      s.openDoors[id] && doorOccupied(id) ? s : { openDoors: { ...s.openDoors, [id]: !s.openDoors[id] } },
+      // the very space that leaf returns to; a hinged leaf also sweeps a quarter-disc beyond
+      // the frame. The store stays open until that whole path is clear.
+      doorOccupied(id) ? s : { openDoors: { ...s.openDoors, [id]: !s.openDoors[id] } },
     ),
   // A drive is a session, not a selection. Clicking about while walking must not let go of the
   // camera; clicking another child changes whose feet the session uses, keeping the same view.

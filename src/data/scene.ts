@@ -9,10 +9,10 @@ export const layout = {
    */
   lot: { width: 15, depth: 18, wallHeight: 1.6, wallThickness: 0.22 },
   /**
-   * The back-yard shed's slab, from `scripts/blender/env_build.py: build_shed()`. In
-   * `environment.glb` the walls are one solid box and the two doors are panels laid on its
-   * face — there is no doorway to walk through. Both the lawn's keep-out and the walker's
-   * collider read this rectangle, so nothing can be stood inside it.
+   * The back-yard shed's concrete slab, from `scripts/blender/env_build.py: build_shed()`.
+   * Grass does not grow under the shed, so the lawn reads this rectangle as a keep-out. The
+   * walls, their doorway and the leaves that swing in it live in `shed.ts`, which builds the
+   * shell over the GLB's solid box; this slab stays the one truth for the footprint.
    */
   shed: { x0: 4.7, x1: 7.1, z0: -11.9, z1: -10.1 },
   /** Front wall runs along this z; the gate opening is centred at x = gateX. */

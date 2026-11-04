@@ -2,6 +2,7 @@ import { config } from '../config';
 import { layout } from '../data/scene';
 import { LawnGroundScene } from './lawn-grass';
 import { ModelOrProxy } from './model-or-proxy';
+import { ShedDoor } from './shed';
 
 const { lot, wall } = layout;
 const CONCRETE = '#C9C2B6';
@@ -59,7 +60,12 @@ function EnvironmentProxy() {
 export function Environment() {
   return (
     <ModelOrProxy url={config.models.environment} proxy={<EnvironmentProxy />}>
-      {(gltf) => <LawnGroundScene scene={gltf.scene} />}
+      {(gltf) => (
+        <>
+          <LawnGroundScene scene={gltf.scene} />
+          <ShedDoor scene={gltf.scene} />
+        </>
+      )}
     </ModelOrProxy>
   );
 }

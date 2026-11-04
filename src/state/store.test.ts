@@ -205,7 +205,7 @@ describe('the aerial and the lid are independent', () => {
   });
 });
 
-describe('a leaf cannot shut through a body', () => {
+describe('a leaf cannot move through a body', () => {
   it('keeps an open door open while the walker stands in its doorway', () => {
     useAppStore.getState().setDoorOpen('door-front', true);
     markDoorOccupied('door-front');
@@ -226,12 +226,30 @@ describe('a leaf cannot shut through a body', () => {
     expect(useAppStore.getState().openDoors['door-front']).toBe(false);
   });
 
-  it('still opens a shut door with somebody in its way', () => {
+  it('also refuses to open a shut leaf onto a body standing on its swing', () => {
     markDoorOccupied('door-front');
 
     useAppStore.getState().toggleDoor('door-front');
 
+    expect(useAppStore.getState().openDoors['door-front']).toBeUndefined();
+  });
+
+  it('opens once the swept ground is clear', () => {
+    markDoorOccupied('door-front');
+    useAppStore.getState().toggleDoor('door-front');
+    clearOccupiedDoors();
+
+    useAppStore.getState().toggleDoor('door-front');
+
     expect(useAppStore.getState().openDoors['door-front']).toBe(true);
+  });
+
+  it('refuses a forced open just as it refuses a forced shut', () => {
+    markDoorOccupied('door-front');
+
+    useAppStore.getState().setDoorOpen('door-front', true);
+
+    expect(useAppStore.getState().openDoors['door-front']).toBeUndefined();
   });
 
   it('refuses a forced close too, and only for the occupied leaf', () => {

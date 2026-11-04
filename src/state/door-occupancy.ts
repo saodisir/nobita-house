@@ -1,10 +1,11 @@
 /**
- * Doorways with a body standing in them, published by the walker once per frame.
+ * Leaves whose whole travel has a body standing on it, published by the walker once per frame.
  *
  * `blocked()` only fills a doorway while its leaf is shut. An open door is deliberately a hole
- * in the wall, so the walker can stand in the exact space the leaf swings back into — and a
- * collider cannot stop that leaf from closing straight through them. The store asks here before
- * it lets a leaf shut, and keeps it open until the doorway is clear.
+ * in the wall, so the walker can stand in the exact space the leaf swings back into; a hinged
+ * leaf also sweeps a quarter-disc out into the room or the porch. A collider can stop neither
+ * motion. The store asks here before it moves a leaf in either direction, and leaves it where
+ * it is until the path is clear.
  *
  * Plain module state, like `walkerPose`: it changes sixty times a second and must not re-render
  * React. The walker writes, the store reads; the two never import each other, so the store
