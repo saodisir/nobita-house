@@ -16,7 +16,6 @@ import { InfoCard } from './ui/info-card';
 import { LoadingVeil } from './ui/loading-veil';
 import { MenusToggle } from './ui/menus-toggle';
 import { PoseBar } from './ui/pose-bar';
-import { RoofControl } from './ui/roof-control';
 import { type PlacedPin, RoomPins, RoomPinTracker } from './ui/room-pins';
 
 /**
@@ -104,7 +103,6 @@ export function App() {
               {showPerf && <PerfStats />}
             </div>
             <ViewControls />
-            <RoofControl />
             {/* No roster: the characters are out of this build entirely. */}
           </motion.div>
           <MenusToggle

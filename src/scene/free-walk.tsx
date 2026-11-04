@@ -1,6 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
-import { Vector3 } from 'three';
+import { Box3, type Camera, Raycaster, type Scene, Vector2, Vector3 } from 'three';
 import { config } from '../config';
 import { characterById } from '../data/characters';
 import { rectToWorld } from '../data/house-site';
@@ -25,7 +25,9 @@ import { type DriveView, useAppStore } from '../state/store';
  *
  * Collision is axis-aligned boxes read from the same `plan.ts` that builds the walls, so a wall
  * that moves in the plan moves here too. Openings whose sill sits at floor level are passable;
- * windows are not. The lot's boundary wall comes from `layout`, split around the gate.
+ * windows are not. A door is a wall while it is shut: its box is read back from the plan and
+ * dropped as soon as `openDoors` says the leaf has moved. The lot's boundary wall comes from
+ * `layout`, split around the gate.
  *
  * Height is a single field rather than two storeys with a teleport between them: the flight is
  * part of it, read from `STAIRS`, so walking to the back of the hall and up twelve treads lands
@@ -162,6 +164,53 @@ const STAIR_KNEE = rectToWorld({ x0: STAIR_WALL.x0, x1: STAIR_WALL.x1, z0: STAIR
 const GROUND_COLLIDERS = [...wallBoxes('ground'), ...lotBoxes(), STAIR_KNEE];
 const UPPER_COLLIDERS = [...wallBoxes('upper'), STAIR_KNEE];
 
+interface DoorBox {
+  id: string;
+  rect: Rect;
+  /** The storey's floor to its wall top: tall enough for a level or a tilted gaze. */
+  y0: number;
+  y1: number;
+}
+
+/**
+ * Every leaf the visitor can open, as the box it fills while shut. `wallBoxes` cuts all the
+ * floor-level openings out of the wall, so this puts the doorways back one by one; `blocked()`
+ * skips the ones the store says are open. Both `kind: 'door'` and a floor-level glass walkout
+ * count — `buildDoors()` draws a leaf for each, and a shut sash is as solid as a shut door.
+ */
+function doorBoxes(storey: 'ground' | 'upper'): DoorBox[] {
+  const boxes: DoorBox[] = [];
+  const threshold = STOREYS[storey].floor + 0.4;
+  for (const wall of WALLS) {
+    if (wall.storey !== storey) continue;
+    const half = (WALL_THICKNESS.get(`${wall.axis}:${wall.at}`) ?? wall.thickness) / 2;
+    for (const o of wall.openings) {
+      if (o.sill > threshold) continue;
+      if (o.kind !== 'door' && !(o.kind === 'window' && o.walkout)) continue;
+      const rect =
+        wall.axis === 'x'
+          ? { x0: o.from, x1: o.to, z0: wall.at - half, z1: wall.at + half }
+          : { x0: wall.at - half, x1: wall.at + half, z0: o.from, z1: o.to };
+      boxes.push({
+        id: o.id,
+        rect: rectToWorld(rect),
+        y0: STOREYS[storey].floor - 0.4,
+        y1: STOREYS[storey].top,
+      });
+    }
+  }
+  return boxes;
+}
+
+const GROUND_DOORS = doorBoxes('ground');
+const UPPER_DOORS = doorBoxes('upper');
+
+/** A locked pointer has no screen position: the crosshair is the middle of the canvas. */
+const CENTRE = new Vector2(0, 0);
+const crosshairRay = new Raycaster();
+/** How far an arm reaches: a door across the garden is not yours to open from here. */
+const DOOR_REACH = 3.2;
+
 /** Top of the tread under (x, z), or null when off the flight. The twelfth tread is the floor. */
 function treadTop(x: number, z: number): number | null {
   if (x < STAIR.x0 || x > STAIR.x1 || z < STAIR.z0 || z > STAIR.z1) return null;
@@ -186,13 +235,64 @@ function surfaceAt(x: number, z: number, storey: 'ground' | 'upper'): number | n
   return storey === 'upper' ? null : 0;
 }
 
-/** Whether a walker of `RADIUS` at (x, z) overlaps a wall of the storey they are standing on. */
-function blocked(x: number, z: number, storey: 'ground' | 'upper'): boolean {
+/**
+ * Whether a walker of `RADIUS` at (x, z) overlaps a wall of the storey they are standing on.
+ * `openDoors` is read every frame rather than baked into a constant: a leaf that swings open
+ * clears the way in the same frame the animation starts, with no rebuild of the plan.
+ */
+function blocked(
+  x: number,
+  z: number,
+  storey: 'ground' | 'upper',
+  openDoors: Record<string, boolean>,
+): boolean {
+  const overlaps = (b: Rect) =>
+    x > b.x0 - RADIUS && x < b.x1 + RADIUS && z > b.z0 - RADIUS && z < b.z1 + RADIUS;
   const colliders = storey === 'upper' ? UPPER_COLLIDERS : GROUND_COLLIDERS;
-  for (const b of colliders) {
-    if (x > b.x0 - RADIUS && x < b.x1 + RADIUS && z > b.z0 - RADIUS && z < b.z1 + RADIUS) return true;
+  for (const b of colliders) if (overlaps(b)) return true;
+  for (const door of storey === 'upper' ? UPPER_DOORS : GROUND_DOORS) {
+    if (!openDoors[door.id] && overlaps(door.rect)) return true;
   }
   return false;
+}
+
+/** Scratch for the doorway test; a click is rare enough that neither needs to be per-press. */
+const DOOR_HIT = new Vector3();
+const DOOR_VOLUME = new Box3();
+const ALL_DOORS = [...GROUND_DOORS, ...UPPER_DOORS];
+
+/**
+ * The door the crosshair rests on, or null when a wall, glass or empty air is in the way.
+ *
+ * A shut leaf answers the ray itself. Once it has swung or slid aside the middle of the doorway
+ * is empty, so a mesh-only test opens a door once and never lets first person shut it again.
+ * The doorway's own volume is the second test — the same box the collider uses. A solid nearer
+ * than that volume still wins: a door seen through a wall is not a door within reach.
+ */
+function doorAtCrosshair(camera: Camera, scene: Scene): string | null {
+  const house = scene.getObjectByName('nobita-house');
+  if (!house) return null;
+  crosshairRay.setFromCamera(CENTRE, camera);
+  crosshairRay.far = DOOR_REACH;
+  // `clickThrough` is the mark `doors.tsx` puts on glass, water and the section cap: a ray
+  // passes those. The first thing it does not pass has to be the leaf itself.
+  const hit = crosshairRay.intersectObject(house, true).find((h) => !h.object.userData.clickThrough);
+  const leafId = hit?.object.userData.door;
+  if (typeof leafId === 'string') return leafId;
+
+  let nearest: { id: string; distance: number } | null = null;
+  for (const door of ALL_DOORS) {
+    const b = door.rect;
+    DOOR_VOLUME.min.set(b.x0, door.y0, b.z0);
+    DOOR_VOLUME.max.set(b.x1, door.y1, b.z1);
+    if (!crosshairRay.ray.intersectBox(DOOR_VOLUME, DOOR_HIT)) continue;
+    const distance = DOOR_HIT.distanceTo(crosshairRay.ray.origin);
+    if (distance > DOOR_REACH || (nearest && distance >= nearest.distance)) continue;
+    nearest = { id: door.id, distance };
+  }
+  if (!nearest) return null;
+  if (hit && hit.distance < nearest.distance - 0.05) return null;
+  return nearest.id;
 }
 
 /**
@@ -237,6 +337,7 @@ export function FreeWalk() {
   const driveView = useAppStore((s) => s.driveView);
   const camera = useThree((s) => s.camera);
   const gl = useThree((s) => s.gl);
+  const scene = useThree((s) => s.scene);
 
   const position = useRef<{ x: number; z: number }>({ x: layout.wall.gateX, z: LOT_FRONT + 1.4 });
   const yaw = useRef(0);
@@ -260,7 +361,11 @@ export function FreeWalk() {
         pitch,
         probe: (x: number, z: number) => {
           const storey = ground.current >= LEVEL.top ? ('upper' as const) : ('ground' as const);
-          return { surface: surfaceAt(x, z, storey), blocked: blocked(x, z, storey), storey };
+          return {
+            surface: surfaceAt(x, z, storey),
+            blocked: blocked(x, z, storey, useAppStore.getState().openDoors),
+            storey,
+          };
         },
       };
   }, []);
@@ -358,8 +463,27 @@ export function FreeWalk() {
     const onUp = () => {
       dragging = false;
     };
-    const onClick = () => {
-      if (useAppStore.getState().driveView === 'first') lock();
+    /**
+     * A press while the pointer is locked belongs to the crosshair, not to R3F. Under pointer
+     * lock the mouse has no screen position and only `movementX/Y` changes, so R3F keeps
+     * raycasting from wherever the lock began: a door under the crosshair would never be hit,
+     * and a stray press could pick a child on the other side of the frame. Catch the press on
+     * the document in the capture phase — before it can reach the canvas — and cast our own ray.
+     */
+    const onPress = (e: MouseEvent) => {
+      const state = useAppStore.getState();
+      if (state.driveView !== 'first') return;
+      if (document.pointerLockElement !== canvas) {
+        // Pointer lock can be refused (embedded frames, some browsers). The drag fallback in
+        // `onMove` still turns the head, and R3F keeps its ordinary pointer clicks.
+        if (e.target === canvas) lock();
+        return;
+      }
+      // The chrome sits in the same document: never swallow a press meant for a real button.
+      if (e.target !== canvas) return;
+      e.stopPropagation();
+      const door = doorAtCrosshair(camera, scene);
+      if (door) state.toggleDoor(door);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       keys.current.add(e.code);
@@ -405,7 +529,7 @@ export function FreeWalk() {
     const onKeyUp = (e: KeyboardEvent) => keys.current.delete(e.code);
     const onBlur = () => keys.current.clear();
 
-    canvas.addEventListener('click', onClick);
+    document.addEventListener('click', onPress, true);
     canvas.addEventListener('mousedown', onDown);
     window.addEventListener('mouseup', onUp);
     document.addEventListener('mousemove', onMove);
@@ -413,7 +537,7 @@ export function FreeWalk() {
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('blur', onBlur);
     return () => {
-      canvas.removeEventListener('click', onClick);
+      document.removeEventListener('click', onPress, true);
       canvas.removeEventListener('mousedown', onDown);
       window.removeEventListener('mouseup', onUp);
       document.removeEventListener('mousemove', onMove);
@@ -433,7 +557,7 @@ export function FreeWalk() {
       // store would end the very session the click was trying to continue. Leaving a drive goes
       // through `toggleFreeWalk` / `resetView`, which own the reset token and the framing.
     };
-  }, [active, subjectId, camera, gl]);
+  }, [active, subjectId, camera, gl, scene]);
 
   /** The lens is the only thing a view change touches: field of view and pointer lock. */
   useEffect(() => {
@@ -467,7 +591,7 @@ export function FreeWalk() {
 
     /** Where the walker would stand if they moved there, or null if they could not stand there. */
     const standAt = (x: number, z: number): number | null => {
-      if (blocked(x, z, storey)) return null;
+      if (blocked(x, z, storey, state.openDoors)) return null;
       const surface = surfaceAt(x, z, storey);
       if (surface === null) return null;
       return Math.abs(surface - ground.current) > stepMax ? null : surface;

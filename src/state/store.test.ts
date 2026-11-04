@@ -21,6 +21,7 @@ const reset = () =>
     possessedId: null,
     poseClip: null,
     modelClips: {},
+    openDoors: {},
   });
 
 beforeEach(reset);
@@ -150,5 +151,53 @@ describe('one drive, two views', () => {
 
     setModelClips('nobita', ['idle']);
     expect(useAppStore.getState().modelClips.nobita).toEqual(['idle']);
+  });
+});
+
+describe('doors', () => {
+  it('starts shut, and a click toggles the one leaf that was hit', () => {
+    const { toggleDoor } = useAppStore.getState();
+    expect(useAppStore.getState().openDoors['door-front']).toBeUndefined();
+    toggleDoor('door-front');
+    expect(useAppStore.getState().openDoors['door-front']).toBe(true);
+    expect(useAppStore.getState().openDoors['door-living']).toBeUndefined();
+    toggleDoor('door-front');
+    expect(useAppStore.getState().openDoors['door-front']).toBe(false);
+  });
+
+  it('does not make a new map when nothing changed', () => {
+    const { setDoorOpen } = useAppStore.getState();
+    setDoorOpen('door-front', true);
+    const map = useAppStore.getState().openDoors;
+    setDoorOpen('door-front', true);
+    expect(useAppStore.getState().openDoors).toBe(map);
+    setDoorOpen('door-front', false);
+    expect(useAppStore.getState().openDoors['door-front']).toBe(false);
+  });
+});
+
+describe('the aerial and the lid are independent', () => {
+  it('looks down without taking the house apart', () => {
+    useAppStore.getState().toggleAerial();
+    expect(useAppStore.getState().aerialView).toBe(true);
+    expect(useAppStore.getState().stage).toBe(0);
+  });
+
+  it('leaves a chosen stage alone on the way in and on the way out', () => {
+    useAppStore.getState().setStage(2);
+    useAppStore.getState().toggleAerial();
+    expect(useAppStore.getState().stage).toBe(2);
+    useAppStore.getState().toggleAerial();
+    expect(useAppStore.getState().aerialView).toBe(false);
+    expect(useAppStore.getState().stage).toBe(2);
+  });
+
+  it('lets the visitor lift a floor while looking down, and keeps it after leaving', () => {
+    useAppStore.getState().toggleAerial();
+    useAppStore.getState().setStage(1);
+    expect(useAppStore.getState().aerialView).toBe(true);
+    expect(useAppStore.getState().stage).toBe(1);
+    useAppStore.getState().toggleAerial();
+    expect(useAppStore.getState().stage).toBe(1);
   });
 });

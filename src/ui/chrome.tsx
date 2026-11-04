@@ -20,6 +20,7 @@ import { RainToggle, TimeOfDayControl } from './time-control';
 import { TourControl } from './tour-control';
 import { useBackgroundMusic } from './use-background-music';
 import { useMediaQuery } from './use-media-query';
+import { ViewControl } from './view-control';
 import { WalkControl } from './walk-control';
 
 /** Below this the toolbar has room for the place control and little else. */
@@ -75,6 +76,8 @@ export function ViewControls() {
     <MotionConfig reducedMotion="user">
       <div className="panel controls" role="toolbar" aria-label={t('toolbar')}>
         <PlaceControl />
+        <div className="controls__divider" aria-hidden="true" />
+        <ViewControl />
         <div className="controls__divider" aria-hidden="true" />
         <TourControl />
         <div className="controls__divider" aria-hidden="true" />

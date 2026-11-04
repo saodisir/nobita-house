@@ -55,13 +55,11 @@ interface AppState {
    */
   stage: DioramaStage;
   /**
-   * The aerial: house opened, camera over it looking down. A mode rather than two separate
-   * controls, because either half alone is useless — the house opened with the camera still on
-   * the street shows nothing, and the camera overhead with the lid on shows a roof.
+   * The aerial: the camera over the house, looking down. Only a camera move. How far the house
+   * is taken apart is `stage`, and the two are independent — looking down at a shut house is a
+   * perfectly good view, and lifting one floor does not need the lens to leave the street.
    */
   aerialView: boolean;
-  /** Where the stage was before the aerial took it, so leaving puts it back. */
-  stageBeforeAerial: DioramaStage;
   /** Incremented to request a camera reset; camera rig subscribes. */
   resetToken: number;
   /**
@@ -74,11 +72,9 @@ interface AppState {
   /** Laid over the time of day: rain greys whichever light is selected. */
   weather: WeatherId;
   /**
-   * Doors held open (or shut) from outside the click handler, by id.
-   *
-   * The click on a leaf is the visitor's way through a door; this is everything else's. A child
-   * walking in from the yard needs the front door open before it arrives and shut after, and it
-   * cannot reach into `doors.tsx` to say so. An id that is absent leaves its door to the click.
+   * Every door's open/shut state, by id. The click on a leaf, a room view, a child walking in
+   * from the yard and the walker's collision all read this one map: an absent id is a shut door.
+   * Keeping it here is what makes a closed leaf a wall you cannot walk through.
    */
   openDoors: Record<string, boolean>;
   /**
@@ -105,6 +101,8 @@ interface AppState {
   setPoseClip: (clip: string | null) => void;
   setModelClips: (id: string, clips: string[]) => void;
   setDoorOpen: (id: string, open: boolean) => void;
+  /** A click on a leaf, from the pointer or from the first-person crosshair ray. */
+  toggleDoor: (id: string) => void;
   select: (id: string | null) => void;
   enterRoom: (roomId: string) => void;
   leaveRoom: () => void;
@@ -141,7 +139,6 @@ export const useAppStore = create<AppState>((set, get) => ({
   driveView: 'first',
   stage: 0,
   aerialView: false,
-  stageBeforeAerial: 0,
   resetToken: 0,
   tourIndex: null,
   timeOfDay: DEFAULT_TIME_OF_DAY,
@@ -193,6 +190,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   setDoorOpen: (id, open) =>
     set((s) => (s.openDoors[id] === open ? s : { openDoors: { ...s.openDoors, [id]: open } })),
+  toggleDoor: (id) => set((s) => ({ openDoors: { ...s.openDoors, [id]: !s.openDoors[id] } })),
   // A drive is a session, not a selection. Clicking about while walking must not let go of the
   // camera; clicking another child changes whose feet the session uses, keeping the same view.
   select: (id) =>
@@ -254,16 +252,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
   // The three detents, clamped: nothing downstream should have to wonder what 7 means.
   setStage: (value) => set({ stage: Math.min(2, Math.max(0, Math.round(value))) as DioramaStage }),
-  // Both halves at once: the detent remembers where it was, the lens goes up. Anything that moves
-  // the visitor elsewhere — a room, a walk, a reset — shuts the house again on its way out.
+  // The aerial only moves the lens. It used to force `stage: 2` and put it back on the way out,
+  // which made "look down at the house with its roof still on" impossible and silently undid a
+  // stage the visitor had chosen. Lifting the lid is its own control now, and either state
+  // survives the aerial. Anything that moves the visitor elsewhere still lets go of the lens.
   toggleAerial: () =>
     set((s) =>
       s.aerialView
-        ? { aerialView: false, stage: s.stageBeforeAerial }
+        ? { aerialView: false }
         : {
             aerialView: true,
-            stageBeforeAerial: s.stage,
-            stage: 2,
             activeRoomId: null,
             selectedCharacterId: null,
             selectedRoomHotspot: null,

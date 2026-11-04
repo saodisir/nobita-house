@@ -62,8 +62,19 @@ export const UI = {
   strollBackTitle: { en: 'Call them back', zh: '叫他们回来' },
   roster: { en: 'Characters', zh: '角色' },
 
-  // --- taking the house apart --------------------------------------------------------------
-  roofLift: { en: 'Lift', zh: '掀开' },
+  // --- the view menu: the lens and the lid, two independent controls -----------------------
+  viewControl: { en: 'View', zh: '视图' },
+  viewMenu: { en: 'Camera and roof', zh: '视角与掀顶' },
+  viewAerialTitle: {
+    en: 'Look down from above — the roof stays where you left it',
+    zh: '从上方俯视，房顶保持你选的状态',
+  },
+  viewLift: { en: 'Lift the roof', zh: '掀开房顶' },
+  viewHint: {
+    en: 'Aerial and lift are independent: look down with the roof on, or lift just the floor you want.',
+    zh: '俯瞰和掀顶互不牵连：可以盖着屋顶俯视，也可以只掀想看的那一层。',
+  },
+  viewWalkNote: { en: 'Lifting the roof waits until you leave the walk.', zh: '退出漫游后才能掀开房顶。' },
   roofLegend: { en: 'How far to take the house apart', zh: '房子拆到哪一步' },
   roofStageShut: { en: 'Shut', zh: '关闭' },
   roofStageRoof: { en: 'Roof', zh: '掀顶' },
@@ -71,7 +82,6 @@ export const UI = {
   roofShutTitle: { en: 'The house as built', zh: '房子原样' },
   roofRoofTitle: { en: 'Roof off: look down into the upstairs rooms', zh: '掀掉屋顶：俯视楼上的房间' },
   roof2FTitle: { en: 'Upper floor slid aside: see the whole ground floor', zh: '把二楼挪开：看清整个一楼' },
-  roofAerialTitle: { en: 'Open the house and look down into it', zh: '打开房子，从上面看下去' },
   roofAerial: { en: 'Aerial', zh: '俯瞰' },
 
   // --- settings ----------------------------------------------------------------------------

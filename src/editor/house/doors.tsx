@@ -77,18 +77,18 @@ function DoorLeaves({
   cutY,
   opened,
 }: Omit<Props, 'doors'> & { door: Door }) {
-  const [open, setOpen] = useState(false);
-  // Opened for the view; after that the visitor may shut it again.
+  // The store is the one truth for every leaf. The click on a leaf, a room view, a child coming
+  // in from the yard and the walker's collision all read the same map; an absent id is a shut
+  // door. A local `useState` here used to mean the collision layer could not tell that a leaf
+  // had moved, so a shut door was still a hole in the wall.
+  const open = useAppStore((s) => s.openDoors[door.id] ?? false);
+  const setDoorOpen = useAppStore((s) => s.setDoorOpen);
+  const toggleDoor = useAppStore((s) => s.toggleDoor);
+  // A room view looks in through one door; opening it here also frees the way for the walker.
   useEffect(() => {
-    if (opened === door.id) setOpen(true);
-  }, [opened, door.id]);
-  // Held open or shut from outside the click handler — a child walking in from the yard, say.
-  // Undefined means nobody is holding it, and the click alone decides.
-  const held = useAppStore((s) => s.openDoors[door.id]);
-  useEffect(() => {
-    if (held === undefined) return;
-    setOpen(held);
-  }, [held]);
+    if (opened === door.id) setDoorOpen(door.id, true);
+  }, [opened, door.id, setDoorOpen]);
+
   const [hovered, setHovered] = useState(false);
   const groups = useRef<(Group | null)[]>([]);
   const t = useRef(0);
@@ -97,6 +97,18 @@ function DoorLeaves({
   // The sound follows the leaf that moves; a pair's back leaf stays put.
   const motion = door.leaves.find((leaf) => leaf.motion)?.motion;
   const userData = { door: door.id };
+
+  // Watching the state rather than the click means the first-person crosshair ray, which toggles
+  // the same store entry from `FreeWalk`, sounds exactly like a click on the leaf.
+  const seen = useRef(open);
+  useEffect(() => {
+    if (seen.current === open) return;
+    seen.current = open;
+    if (!motion) return;
+    playOpenSfx(motion, 'start');
+    window.clearTimeout(clack.current);
+    clack.current = window.setTimeout(() => playOpenSfx(motion, 'end'), TRAVEL_SECONDS * 1000);
+  }, [open, motion]);
 
   useFrame((_, delta) => {
     const target = open ? 1 : 0;
@@ -121,17 +133,21 @@ function DoorLeaves({
     <group
       name={door.id}
       onClick={(event) => {
+        // With the pointer locked, R3F's pointer stays where the lock began, so its ray does not
+        // follow the crosshair. `FreeWalk` casts a centre-of-screen ray instead and stops the
+        // press before it reaches the canvas; this guard is the second half of that handover.
+        if (document.pointerLockElement) return;
         if (event.delta > CLICK_SLOP || !reaches(event, root.current, cutY, door.id)) return;
         event.stopPropagation();
-        if (motion) {
-          // The whoosh on the way, the knock when it seats; a re-toggle mid-flight books a new knock.
-          playOpenSfx(motion, 'start');
-          window.clearTimeout(clack.current);
-          clack.current = window.setTimeout(() => playOpenSfx(motion, 'end'), TRAVEL_SECONDS * 1000);
-        }
-        setOpen((was) => !was);
+        toggleDoor(door.id);
       }}
       onPointerMove={(event) => {
+        // A locked pointer has no usable screen position: its ray is stale, and a hover left
+        // over from it would keep the cursor as a pointer long after the lock is released.
+        if (document.pointerLockElement) {
+          setHovered(false);
+          return;
+        }
         // Whether the door shows under the pointer changes as it crosses a jamb or a wall in
         // front: look again, but a whole-house raycast is ~6 ms, so not on every move.
         if (event.timeStamp - lastLook.current < HOVER_EVERY_MS) return;

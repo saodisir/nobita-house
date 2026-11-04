@@ -18,8 +18,12 @@ const PAD = 0.12;
  */
 export function WindowPortals() {
   const activeRoomId = useAppStore((s) => s.activeRoomId);
+  const freeWalk = useAppStore((s) => s.freeWalk);
   // Nothing to click while already inside, and a stale hover would leave the cursor stuck.
-  if (activeRoomId !== null) return null;
+  // On foot the visitor goes through the doors. These plates stand just outside the facade and
+  // stop the press on their way to `enterRoom()`, so a click meant for the front door used to
+  // teleport into a room instead — and end the walk mid-stride. Leave them out of a drive.
+  if (activeRoomId !== null || freeWalk) return null;
   return (
     <>
       {rooms.map((room) => (
