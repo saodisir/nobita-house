@@ -1,12 +1,12 @@
 import { useFrame } from '@react-three/fiber';
 import { type RefObject, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { type Group, Vector3 } from 'three';
+import type { Group } from 'three';
 import type { CharacterDef } from '../data/characters';
 import { housePathDoors } from '../data/house-path';
 import { RUN_SPEED, type WalkSample } from '../data/walk-routes';
 import { poseFor } from '../state/character-poses';
 import { useAppStore } from '../state/store';
-import { advanceHold, heldPose } from './possession';
+import { walkerPose } from './free-walk';
 import { RUN_AT } from './walk-clips';
 import { createWander, isPlaying, sampleWander, type WanderState, wanderSpeed } from './wander';
 import { advancePack, joinPack } from './wander-pack';
@@ -15,9 +15,6 @@ import { advancePack, joinPack } from './wander-pack';
 const TURN_RATE = 8;
 /** Below this ground speed a walker is standing, whatever its clock still holds. */
 const MOVING_EPSILON = 0.08;
-
-/** Where the camera is looking, flattened, for reading the driving keys against the view. */
-const LOOK = new Vector3();
 
 const wrapPi = (a: number) => a - 2 * Math.PI * Math.floor((a + Math.PI) / (2 * Math.PI));
 
@@ -143,22 +140,22 @@ export function useWalker(ref: RefObject<Group | null>, index: number, def: Char
     // The child under the hand is left out of that pass — see `advancePack`.
     advancePack(frame.clock.elapsedTime, store.walkMode, store.possessedId);
 
-    // Held: the lap stops mattering and the keys take over. Everything below this is the walk's
-    // own business — the gate, the doors, the games — and none of it applies to a driven child.
-    if (store.possessedId === def.id) {
-      const look = frame.camera.getWorldDirection(LOOK);
-      advanceHold(step, look.x, look.z);
-      group.position.set(heldPose.x, heldPose.y, heldPose.z);
-      group.rotation.set(0, heldPose.heading, 0);
+    // Held: the lap stops mattering and `FreeWalk`'s one walker takes over. This frame only
+    // copies its answer onto the group and onto `characterPoses`, which is what the camera
+    // follows in third person. There is no second integrator here: both views read the same
+    // pose, so turning the lens round mid-stride cannot move the child.
+    if (store.possessedId === def.id && store.freeWalk) {
+      group.position.set(walkerPose.x, walkerPose.ground, walkerPose.z);
+      group.rotation.set(0, walkerPose.heading, 0);
       body.position.copy(group.position);
-      body.heading = heldPose.heading;
-      body.speed = heldPose.speed;
-      body.moving = heldPose.moving;
-      body.resting = !heldPose.moving;
+      body.heading = walkerPose.heading;
+      body.speed = walkerPose.speed;
+      body.moving = walkerPose.moving;
+      body.resting = !walkerPose.moving;
       publish({
-        moving: heldPose.moving,
-        resting: !heldPose.moving,
-        running: heldPose.running,
+        moving: walkerPose.moving,
+        resting: !walkerPose.moving,
+        running: walkerPose.running,
         outside: false,
         game: null,
       });

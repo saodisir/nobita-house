@@ -283,6 +283,9 @@ export function Character({ def, index }: { def: CharacterDef; index: number }) 
   const { moving } = pose;
   /** Taken off its route and driven by the visitor, and which motion it was told to hold. */
   const possessed = useAppStore((s) => s.possessedId === def.id);
+  // Standing inside your own head would fill the lens with the inside of the model. The body
+  // (and its shadow) steps out of the way in first person; third person still needs it.
+  const hidden = useAppStore((s) => s.freeWalk && s.driveView === 'first' && s.possessedId === def.id);
   const poseClip = useAppStore((s) => s.poseClip);
   // Only while it stands still: asked to walk, the walk clip is the honest one and a dance played
   // over a travelling body reads as the child sliding along the pavement.
@@ -322,6 +325,7 @@ export function Character({ def, index }: { def: CharacterDef; index: number }) 
     <group
       ref={root}
       name={`character-${def.id}`}
+      visible={!hidden}
       onClick={(e) => {
         e.stopPropagation();
         // Same threshold the ground plane deselects on: releasing an orbit drag over a

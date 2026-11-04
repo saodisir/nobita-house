@@ -12,6 +12,14 @@ import { detectLocale, type Locale, storeLocale, syncDocumentLang } from '../i18
 export type DioramaStage = 0 | 1 | 2;
 
 /**
+ * Where the lens sits during a drive. It is a property of the camera, not of the walking: the
+ * same feet, the same collision and the same position feed both, so switching mid-walk cannot
+ * move the subject. First person has no body to look at and is the only view a visitor without
+ * a character can use; third person needs somebody to stand behind.
+ */
+export type DriveView = 'first' | 'third';
+
+/**
  * Which room the visitor is standing in, or `null` for the street. It replaced a boolean
  * view: the house has more than one room, and "inside" was never one place.
  */
@@ -31,10 +39,15 @@ interface AppState {
   /** The six characters stroll round the block; off, they walk back to their spots. */
   walkMode: boolean;
   /**
-   * The visitor walks the lot and the house on their own feet, WASD and mouse, instead of orbiting.
-   * Separate from `walkMode`, which is about the characters' stroll along the street.
+   * A drive is in progress. The visitor's own feet and a child's are the same session now: this
+   * flag says the session is on, `possessedId` says whose feet, and `driveView` says where the
+   * lens sits. Keeping the old name avoids rewriting every camera consumer for a rename.
    */
   freeWalk: boolean;
+  /** Whose feet the drive uses: `null` is the visitor, with no body in the scene. */
+  possessedId: string | null;
+  /** Which end of the drive the camera looks from. Switchable without leaving the session. */
+  driveView: DriveView;
   /**
    * How far the diorama is taken apart: shut, roof off, or roof off and the upper floor slid out
    * of the way. Detents rather than a percentage, because the useful positions are not a
@@ -75,11 +88,6 @@ interface AppState {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   /**
-   * The child the visitor is driving by hand, or null. While one is held its own wander is
-   * suspended: it goes where the keys say rather than round its lap.
-   */
-  possessedId: string | null;
-  /**
    * A clip forced on the held child, by name, or null to let movement choose between idle, walk
    * and run. Forcing one is how the studio's motion list reaches the diorama: the same clips,
    * played on a child that is out in the street instead of on a turntable.
@@ -87,6 +95,11 @@ interface AppState {
   poseClip: string | null;
   /** Clip names each loaded model carries, reported once its GLB arrives; read by the bar. */
   modelClips: Record<string, string[]>;
+  /** Begin (or restart) a drive on `id`, or on the visitor's own feet with `null`. */
+  driveAs: (id: string | null, view: DriveView) => void;
+  /** Turn the camera round without touching the subject's position, speed or keys. */
+  setDriveView: (view: DriveView) => void;
+  /** Legacy name for the third-person entry point, kept for the store's callers and tests. */
   possess: (id: string) => void;
   releaseCharacter: () => void;
   setPoseClip: (clip: string | null) => void;
@@ -125,6 +138,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   showPerf: false,
   walkMode: false,
   freeWalk: false,
+  driveView: 'first',
   stage: 0,
   aerialView: false,
   stageBeforeAerial: 0,
@@ -143,12 +157,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   possessedId: null,
   poseClip: null,
   modelClips: {},
-  // Taking hold of a child is a street activity: the lens goes behind it and stays there, so
-  // everything else that wants the camera — a room, a tour, the aerial, the visitor's own feet
-  // — lets go first. The card goes with it: it covers the view the driving needs.
-  possess: (id) =>
+  // One drive, three questions: is it on, whose feet, where is the lens. Everything else that
+  // wants the camera — a room, a tour, the aerial — lets go first. The card goes with it: it
+  // covers the view the driving needs.
+  driveAs: (id, view) =>
     set({
+      freeWalk: true,
+      // A visitor with no body has nobody to stand behind: third person is only for a child.
       possessedId: id,
+      driveView: id === null ? 'first' : view,
       poseClip: null,
       selectedCharacterId: null,
       activeRoomId: null,
@@ -156,10 +173,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       tourIndex: null,
       aerialView: false,
       stage: 0,
-      freeWalk: false,
       autoRotate: false,
     }),
-  releaseCharacter: () => set({ possessedId: null, poseClip: null }),
+  setDriveView: (view) =>
+    set((s) =>
+      // No child, no over-the-shoulder shot. The visitor's own feet are first person only.
+      s.possessedId === null || !s.freeWalk || s.driveView === view ? s : { driveView: view },
+    ),
+  possess: (id) => get().driveAs(id, 'third'),
+  releaseCharacter: () => set({ freeWalk: false, possessedId: null, poseClip: null, driveView: 'first' }),
   setPoseClip: (clip) => set({ poseClip: clip }),
   setModelClips: (id, clips) =>
     set((s) => {
@@ -171,11 +193,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     }),
   setDoorOpen: (id, open) =>
     set((s) => (s.openDoors[id] === open ? s : { openDoors: { ...s.openDoors, [id]: open } })),
-  // While a child is under the hand, a click is not a selection: on the child itself it is
-  // nothing at all, and on the ground it is the start of a drag. Only picking somebody else
-  // lets go — the hand moves to the child that was clicked.
+  // A drive is a session, not a selection. Clicking about while walking must not let go of the
+  // camera; clicking another child changes whose feet the session uses, keeping the same view.
   select: (id) =>
     set((s) => {
+      if (s.freeWalk) {
+        if (id === null || id === s.possessedId) return s;
+        return { possessedId: id, poseClip: null, selectedCharacterId: null };
+      }
       if (s.possessedId === null) return { selectedCharacterId: id };
       if (id === null || id === s.possessedId) return s;
       return { selectedCharacterId: id, possessedId: null, poseClip: null };
@@ -189,6 +214,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectedCharacterId: null,
       selectedRoomHotspot: null,
       autoRotate: false,
+      freeWalk: false,
       possessedId: null,
       poseClip: null,
       // Going in puts the lid back: a roof floating over a room you are standing in is a hole.
@@ -205,22 +231,27 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleAutoRotate: () => set((s) => ({ autoRotate: !s.autoRotate })),
   togglePerf: () => set((s) => ({ showPerf: !s.showPerf })),
   toggleWalkMode: () => set((s) => ({ walkMode: !s.walkMode })),
-  // Walking and standing in a room are two ways of holding the camera; switching to one releases
-  // the other, or the room's fixed eye fights the walker for the same position every frame.
-  toggleFreeWalk: () =>
+  // The visitor's own feet: the same drive as a child's, with nobody to stand behind. Leaving a
+  // drive hands the lens back to the street rather than to wherever the walk stopped.
+  toggleFreeWalk: () => {
+    if (get().freeWalk) {
+      get().resetView();
+      return;
+    }
     set((s) => ({
-      freeWalk: !s.freeWalk,
-      activeRoomId: s.freeWalk ? s.activeRoomId : null,
+      freeWalk: true,
+      possessedId: null,
+      driveView: 'first',
+      activeRoomId: null,
       selectedRoomHotspot: null,
       selectedCharacterId: null,
       autoRotate: false,
-      tourIndex: s.freeWalk ? s.tourIndex : null,
+      tourIndex: s.tourIndex,
       aerialView: false,
       stage: 0,
-      // Two ways of driving something, one at a time: the visitor's own feet or a child's.
-      possessedId: null,
       poseClip: null,
-    })),
+    }));
+  },
   // The three detents, clamped: nothing downstream should have to wonder what 7 means.
   setStage: (value) => set({ stage: Math.min(2, Math.max(0, Math.round(value))) as DioramaStage }),
   // Both halves at once: the detent remembers where it was, the lens goes up. Anything that moves
@@ -238,11 +269,13 @@ export const useAppStore = create<AppState>((set, get) => ({
             selectedRoomHotspot: null,
             tourIndex: null,
             autoRotate: false,
+            freeWalk: false,
             possessedId: null,
             poseClip: null,
           },
     ),
-  // Reset always lands on the street: it is the "I am lost" button.
+  // Reset always lands on the street: it is the "I am lost" button. It also ends a drive —
+  // driving and a reset framing cannot both own the camera at once.
   resetView: () =>
     set((s) => ({
       resetToken: s.resetToken + 1,
@@ -252,7 +285,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       tourIndex: null,
       aerialView: false,
       stage: 0,
+      freeWalk: false,
       possessedId: null,
+      driveView: 'first',
       poseClip: null,
     })),
   // The tour drives the same enter/leave the place menu does; the camera hook

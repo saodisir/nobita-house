@@ -13,7 +13,6 @@ import { LawnGrass } from './lawn-grass';
 import { Lighting } from './lighting';
 import { Neighbours } from './neighbours';
 import { NightLights } from './night-lights';
-import { PossessKeys } from './possess-keys';
 import { PostProcessing } from './post-processing';
 import { Rain } from './rain';
 import { RainCover } from './rain-cover';
@@ -66,8 +65,8 @@ export function Scene() {
       <Rain tod={tod} />
       <RainCover tod={tod} />
       <WetSurfaces tod={tod} />
+      {/* One keyboard, one walker: FreeWalk owns both views of a drive. */}
       <FreeWalk />
-      <PossessKeys />
       <PostProcessing />
     </>
   );

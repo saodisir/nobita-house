@@ -10,6 +10,10 @@ import { press } from './motion-presets';
  * One button, because the mode has no sub-state: pressing it drops you at the gate on your own
  * feet, pressing it again puts you back on the street with the orbit.
  *
+ * "Walk myself", as opposed to the "Let them roam" button beside it. Both names say who is
+ * walking, not merely that some walking happens: this one moves the visitor, that one sends the
+ * six children round their own laps.
+ *
  * The glyph is a pair of footprints rather than a person: the toolbar already uses a person for
  * the character roster, and this button moves the visitor, not Nobita.
  */

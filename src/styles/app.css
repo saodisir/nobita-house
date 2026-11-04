@@ -1119,16 +1119,21 @@ button.settings__row:hover,
   background: var(--accent-600);
   color: var(--paper-100);
 }
+.card__action + .card__action {
+  margin-left: 8px;
+}
 
 .pose-bar {
   position: fixed;
-  left: 50%;
+  left: 16px;
   bottom: 22px;
-  transform: translateX(-50%);
   z-index: 30;
-  /* The menus toggle floats at the bottom right; the bar keeps clear of it down to 768 px. */
-  width: min(720px, calc(100vw - 120px));
-  padding: 10px 14px 12px;
+  /* Bottom-left is the one free corner: the card owns the top right, the menus toggle the
+     bottom right, and the visitor's key hint sits on the bottom centre. A narrow rail here
+     leaves the middle of the frame — where the child being followed actually is — clear. */
+  width: 240px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 12px 12px;
   font-family: var(--font-ui);
 }
 .pose-bar__head {
@@ -1168,6 +1173,40 @@ button.settings__row:hover,
 .pose-bar__release:hover {
   background: var(--paper-300);
   color: var(--ink-900);
+}
+.pose-bar__views {
+  margin-bottom: 6px;
+}
+.pose-bar--compact .pose-bar__views {
+  margin-bottom: 0;
+}
+.pose-bar__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-700);
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    color var(--d-hover);
+}
+.pose-bar__toggle:hover {
+  background: var(--paper-300);
+  color: var(--ink-900);
+}
+.pose-bar__toggle[data-active="true"] {
+  background: var(--accent-soft);
+  color: var(--accent-600);
+}
+.pose-bar__actions {
+  margin-top: 6px;
 }
 .pose-bar__chips {
   display: flex;
@@ -1225,9 +1264,12 @@ button.settings__row:hover,
 }
 @media (max-width: 767px) {
   .pose-bar {
-    /* Above the menus toggle rather than under it: at this width they share the bottom edge. */
+    /* Full-width rail above the bottom controls, clear of the menus toggle. */
+    left: 12px;
+    right: 12px;
     bottom: 96px;
-    width: calc(100vw - 40px);
+    width: auto;
+    max-width: none;
     padding: 8px 10px 10px;
   }
   /* One scrolling rail instead of three clipped rows: at this width a wrapped fieldset ends

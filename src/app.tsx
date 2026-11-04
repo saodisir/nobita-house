@@ -50,6 +50,9 @@ export function App() {
   const room = useAppStore((s) => (s.activeRoomId ? roomById(s.activeRoomId) : undefined));
   const showPerf = useAppStore((s) => s.showPerf);
   const walking = useAppStore((s) => s.freeWalk);
+  // A driven child has its own bar on the same bottom edge; the hint belongs to the visitor
+  // walking on their own feet.
+  const drivingSelf = useAppStore((s) => s.possessedId === null);
   const locale = useLocale();
   const t = useT();
 
@@ -113,7 +116,7 @@ export function App() {
         <InfoCard />
         <PoseBar />
         <RoomPins placed={pins} />
-        {walking && (
+        {walking && drivingSelf && (
           <div className="walk-hint" role="status">
             <span>
               <b>{t('hintClick')}</b> {t('hintLook')}

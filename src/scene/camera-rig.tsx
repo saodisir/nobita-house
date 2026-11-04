@@ -105,6 +105,7 @@ export function CameraRig() {
   const swingDue = useRef(false);
   const selectedId = useAppStore((s) => s.selectedCharacterId);
   const possessedId = useAppStore((s) => s.possessedId);
+  const driveView = useAppStore((s) => s.driveView);
   const resetToken = useAppStore((s) => s.resetToken);
   const autoRotate = useAppStore((s) => s.autoRotate);
   const aerial = useAppStore((s) => s.aerialView);
@@ -214,7 +215,9 @@ export function CameraRig() {
   useEffect(() => {
     const c = controls.current;
     const def = possessedId ? characterById(possessedId) : undefined;
-    if (!c || !def) return;
+    // First person owns the eye. Re-running on a view change is what puts the lens behind the
+    // child when V is pressed mid-walk; a selected (not driven) child still gets its fly-in.
+    if (!c || !def || driveView !== 'third' || !useAppStore.getState().freeWalk) return;
     tracking.current = false;
     grabbed.current = false;
     const pose = characterPoses.get(def.id);
@@ -234,7 +237,7 @@ export function CameraRig() {
       z,
       !prefersReducedMotion(),
     );
-  }, [possessedId]);
+  }, [possessedId, driveView]);
 
   useEffect(() => {
     let raf = 0;
@@ -249,7 +252,20 @@ export function CameraRig() {
   useFrame((_, delta) => {
     const c = controls.current;
     if (!c) return;
-    const { selectedCharacterId: id, autoRotate: spinning, possessedId: held } = useAppStore.getState();
+    const {
+      selectedCharacterId: id,
+      autoRotate: spinning,
+      possessedId: held,
+      freeWalk: driving,
+      driveView: view,
+    } = useAppStore.getState();
+
+    // First person writes the camera at priority 1. Following here would only drag the orbit's
+    // internal target away from the place it will be needed when the lens comes back.
+    if (driving && view !== 'third') {
+      tracking.current = false;
+      return;
+    }
 
     // Driving a child: the target follows it every frame, whatever the visitor is doing with the
     // mouse. `moveTo` shifts target and eye together, so dragging an orbit angle still holds.
@@ -309,7 +325,7 @@ export function CameraRig() {
   return (
     <CameraControls
       ref={controls}
-      enabled={!freeWalk}
+      enabled={!freeWalk || driveView === 'third'}
       minDistance={config.camera.minDistance}
       maxDistance={config.camera.maxDistance}
       // Inside, the eye stands where the visitor chose and only turns: see `LOOK_AROUND`.

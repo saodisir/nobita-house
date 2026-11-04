@@ -20,8 +20,8 @@ export const UI = {
     zh: '《哆啦A梦》里大雄的家。你正站在其中一个房间：{room}（{kana}）。',
   },
   canvasStreet: {
-    en: "Nobita's house from Doraemon seen from the street: a two-storey cream house under red tile roofs behind a concrete block wall, with six children gathered at the front gate — two sitting on the wall, one on the pavement, three standing. Press Stroll to send three of them round the yard and three along the street.",
-    zh: '从街上看到的《哆啦A梦》大雄家：一栋米色的两层小楼，红瓦屋顶，前面围着水泥砌块墙，六个孩子聚在院门口——两个坐在墙上，一个站在人行道上，三个站着。按「溜达」可以让院子里的三个和街上的三个各自走动起来。',
+    en: "Nobita's house from Doraemon seen from the street: a two-storey cream house under red tile roofs behind a concrete block wall, with six children gathered at the front gate — two sitting on the wall, one on the pavement, three standing. The Let them roam switch sends three of them round the yard and three along the street.",
+    zh: '从街上看到的《哆啦A梦》大雄家：一栋米色的两层小楼，红瓦屋顶，前面围着水泥砌块墙，六个孩子聚在院门口——两个坐在墙上，一个站在人行道上，三个站着。按「让他们走走」可以让院子里的三个和街上的三个各自走动起来。',
   },
 
   // --- toolbar -----------------------------------------------------------------------------
@@ -47,16 +47,18 @@ export const UI = {
   tourNext: { en: 'Next stop', zh: '下一站' },
   tourExit: { en: 'Exit tour', zh: '退出导览' },
 
-  // --- walking -----------------------------------------------------------------------------
-  walkIn: { en: 'Walk', zh: '步行' },
+  // --- the visitor's own feet --------------------------------------------------------------
+  // Both buttons name who is doing the walking. "Stroll" and "Walk" were both just ways of
+  // going somewhere, and the two switches were forever being mistaken for each other.
+  walkIn: { en: 'Walk myself', zh: '自己走走' },
   walkOut: { en: 'Exit', zh: '退出' },
-  walkInTitle: { en: 'Walk the house', zh: '在屋里走走' },
+  walkInTitle: { en: 'Walk the house on my own feet', zh: '以自己的视角走走' },
   walkOutTitle: { en: 'Back to the street', zh: '回到街上' },
 
-  // --- the six children --------------------------------------------------------------------
-  strollOut: { en: 'Stroll', zh: '溜达' },
-  strollBack: { en: 'Back', zh: '回来' },
-  strollOutTitle: { en: 'Let them out', zh: '让他们出来玩' },
+  // --- the six children on their laps -------------------------------------------------------
+  strollOut: { en: 'Let them roam', zh: '让他们走走' },
+  strollBack: { en: 'Call them back', zh: '叫他们回来' },
+  strollOutTitle: { en: 'Let the six children out on their laps', zh: '让他们出来玩' },
   strollBackTitle: { en: 'Call them back', zh: '叫他们回来' },
   roster: { en: 'Characters', zh: '角色' },
 
@@ -98,9 +100,15 @@ export const UI = {
 
   // --- taking a child by the hand ------------------------------------------------------------
   cardPossess: { en: 'Take control', zh: '操纵这个角色' },
+  cardDriveFirst: { en: 'Walk in their eyes', zh: '以 TA 的眼睛走' },
+  cardDriveThird: { en: 'Follow behind', zh: '跟着 TA 走' },
+  poseView: { en: 'Camera', zh: '视角' },
+  poseViewFirst: { en: 'First person', zh: '第一人称' },
+  poseViewThird: { en: 'Third person', zh: '第三人称' },
   poseBar: { en: 'Driving a character', zh: '操控角色' },
   poseBarClips: { en: 'Motions', zh: '动作' },
   poseAuto: { en: 'Auto', zh: '自动' },
+  poseActions: { en: 'Motions', zh: '动作' },
   poseRelease: { en: 'Let go', zh: '松手' },
   poseForced: { en: 'While you move, the walk takes over.', zh: '走动时以走路动作为准。' },
   poseNoClips: {
@@ -108,8 +116,8 @@ export const UI = {
     zh: '{name} 的模型还没有动作片段，移动时只能平移。',
   },
   poseHint: {
-    en: 'WASD walk · Shift run · drag to look · Esc let go',
-    zh: 'WASD 走动 · Shift 跑 · 拖动看四周 · Esc 松手',
+    en: 'WASD walk · Shift run · V view · E floors · Esc let go',
+    zh: 'WASD 走 · Shift 跑 · V 视角 · E 楼层 · Esc 松手',
   },
 
   // --- performance readout -----------------------------------------------------------------

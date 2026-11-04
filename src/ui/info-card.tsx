@@ -16,7 +16,7 @@ export function InfoCard() {
   const hotspotId = useAppStore((s) => s.selectedRoomHotspot);
   const select = useAppStore((s) => s.select);
   const selectRoomHotspot = useAppStore((s) => s.selectRoomHotspot);
-  const possess = useAppStore((s) => s.possess);
+  const driveAs = useAppStore((s) => s.driveAs);
   const closeRef = useRef<HTMLButtonElement>(null);
   const locale = useLocale();
   const t = useT();
@@ -58,9 +58,12 @@ export function InfoCard() {
         title={pick(character.name, locale)}
         jp={character.jpName}
         body={pick(character.bio, locale)}
-        // Opening a card and taking the child by the hand are two different things, so they are
-        // two different gestures: a click looks, this button drives.
-        action={{ label: t('cardPossess'), onClick: () => possess(character.id) }}
+        // A click looks; these two buttons start a drive. Same walk, same house, only a different
+        // place to put the lens. V swaps them without letting go of the child.
+        actions={[
+          { label: t('cardDriveFirst'), onClick: () => driveAs(character.id, 'first') },
+          { label: t('cardDriveThird'), onClick: () => driveAs(character.id, 'third') },
+        ]}
         closeRef={closeRef}
         onClose={close}
       />
@@ -86,7 +89,7 @@ function Card({
   title,
   jp,
   body,
-  action,
+  actions,
   closeRef,
   onClose,
 }: {
@@ -95,7 +98,7 @@ function Card({
   title: string;
   jp?: string;
   body: string;
-  action?: { label: string; onClick: () => void };
+  actions?: { label: string; onClick: () => void }[];
   closeRef: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
 }) {
@@ -112,11 +115,11 @@ function Card({
         </p>
       )}
       <p className="body">{body}</p>
-      {action && (
-        <button type="button" className="card__action" onClick={action.onClick}>
+      {actions?.map((action) => (
+        <button key={action.label} type="button" className="card__action" onClick={action.onClick}>
           {action.label}
         </button>
-      )}
+      ))}
       <button ref={closeRef} type="button" className="close" aria-label={t('cardClose')} onClick={onClose}>
         &times;
       </button>
