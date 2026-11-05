@@ -3,6 +3,7 @@ import { seeded } from '../scene/wander-plan';
 import {
   BODY_PAD,
   NAV_EDGES,
+  NAV_GOALS,
   NAV_NODES,
   NAV_OBSTACLES,
   nearestOnRoute,
@@ -177,5 +178,27 @@ describe('the garden walk graph', () => {
     // Without the penalty on used edges this is 47 of 80; the remaining ones are the walks
     // that have to come back out of the inner line, which has only four ways in.
     expect(retraced).toBeLessThan(40);
+  });
+
+  it('picks a destination and plans a real way there', () => {
+    expect(NAV_GOALS).toHaveLength(NAV_NODES.length - 1);
+    expect(NAV_GOALS).not.toContain('gate');
+    const edges = new Set(NAV_EDGES.map((e) => `${e.from}>${e.to}`));
+    for (let seed = 0; seed < 60; seed++) {
+      const route = randomLoop(seeded(seed));
+      expect(NAV_GOALS).toContain(route.goal);
+      expect(route.ids).toContain(route.goal);
+      // A* is a goal-directed search: a destination one hop from the gate is reached in one hop.
+      if (route.goal === 'se' || route.goal === 'sw') expect(route.ids[1]).toBe(route.goal);
+      for (let i = 1; i < route.ids.length; i++) {
+        expect(edges.has(`${route.ids[i - 1]}>${route.ids[i]}`), `seed ${seed} step ${i}`).toBe(true);
+      }
+    }
+  });
+
+  it('replays a destination exactly and visits many different places', () => {
+    expect(randomLoop(seeded(31)).goal).toBe(randomLoop(seeded(31)).goal);
+    const goals = new Set(Array.from({ length: 40 }, (_, seed) => randomLoop(seeded(seed)).goal));
+    expect(goals.size).toBeGreaterThan(5);
   });
 });

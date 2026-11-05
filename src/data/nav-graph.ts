@@ -47,6 +47,8 @@ export interface RoutePoint {
 export interface NavRoute {
   /** The graph nodes the walk visits, in order, gate first and gate last. */
   ids: string[];
+  /** The place this afternoon set out to reach; the first leg is planned to it. */
+  goal: string;
   /** The same walk with every corner rounded into a short arc. */
   points: RoutePoint[];
   /** Cumulative distance to each point; `s[0] = 0`. */
@@ -102,6 +104,9 @@ const node = (id: string): NavNode => {
   if (!found) throw new RangeError(`no nav node ${id}`);
   return found;
 };
+
+/** Places worth walking to. Every one of them is a node on the measured graph. */
+export const NAV_GOALS: readonly string[] = NAV_NODES.filter((n) => n.id !== 'gate').map((n) => n.id);
 
 /**
  * Liang–Barsky: does segment a→b enter the rectangle grown by `pad`?
@@ -229,15 +234,21 @@ function weightedPick<T>(rng: Rng, items: readonly T[], weights: readonly number
 }
 
 /**
- * The cheapest way back to the gate, with a penalty for retracing a node or an edge the walk
- * has already used. Only twelve edges, so an array scan is faster to read than a heap.
+ * A* from one node to a chosen goal. The heuristic is straight-line distance to that goal,
+ * which never overestimates: every edge is a straight segment at least as long as the bird's
+ * path between its ends. With nine nodes the open set is a plain scan rather than a heap, but
+ * `f = g + h` is what makes this a search *towards somewhere* instead of a flood fill.
+ *
+ * A road already used, or a node already visited, carries a soft penalty. That breaks strict
+ * admissibility of the combined cost, so the answer is the cheapest appealing route rather
+ * than a proof of the shortest one — which is what a child's afternoon wants anyway.
  */
-function shortestPath(
-  from: string,
-  to: string,
-  seen: ReadonlySet<string>,
-  used: ReadonlySet<string>,
-): string[] {
+function aStar(from: string, goal: string, seen: ReadonlySet<string>, used: ReadonlySet<string>): string[] {
+  const target = node(goal);
+  const h = (id: string): number => {
+    const n = node(id);
+    return Math.hypot(n.x - target.x, n.z - target.z);
+  };
   const distance = new Map<string, number>([[from, 0]]);
   const previous = new Map<string, string>();
   const open = new Set<string>([from]);
@@ -247,17 +258,18 @@ function shortestPath(
     let at: string | null = null;
     let best = Number.POSITIVE_INFINITY;
     for (const id of open) {
-      const d = distance.get(id) ?? Number.POSITIVE_INFINITY;
-      if (d < best) {
-        best = d;
+      const score = (distance.get(id) ?? Number.POSITIVE_INFINITY) + h(id);
+      if (score < best) {
+        best = score;
         at = id;
       }
     }
     if (at === null) break;
-    if (at === to) break;
+    if (at === goal) break;
     open.delete(at);
+    const g = distance.get(at) ?? 0;
     for (const edge of ADJACENCY.get(at) ?? []) {
-      const next = best + cost(edge);
+      const next = g + cost(edge);
       if (next < (distance.get(edge.to) ?? Number.POSITIVE_INFINITY)) {
         distance.set(edge.to, next);
         previous.set(edge.to, at);
@@ -265,9 +277,9 @@ function shortestPath(
       }
     }
   }
-  if (!distance.has(to)) return [];
-  const path = [to];
-  let at = to;
+  if (!distance.has(goal)) return [];
+  const path = [goal];
+  let at = goal;
   while (at !== from) {
     const prev = previous.get(at);
     if (!prev) return [];
@@ -280,18 +292,38 @@ function shortestPath(
 /**
  * Draw this afternoon's walk.
  *
- * A few turns are chosen by a weighted random walk: short edges are more likely, immediately
- * doubling back is forbidden, and a node or an edge already used is discouraged. Once the
- * wander stops, Dijkstra prices the way home with the same dislike of used edges, so the walk
- * spreads round the garden instead of pacing one stretch back and forth. The result always
- * begins and ends at the gate, which is the one point on the garden that joins the children's
- * spots to the ground behind the wall.
+ * Unlike a wander with no aim, this one first picks somewhere to go. A* plans the way there,
+ * the child then takes a few seeded turns round the garden, and a second A* plans the way
+ * home. Short edges are more likely on those turns, immediately doubling back is forbidden,
+ * and a node or an edge already used is discouraged, so the whole walk spreads out instead of
+ * pacing one stretch back and forth. The result always begins and ends at the gate, which is
+ * the one point on the garden that joins the children's spots to the ground behind the wall.
  */
 export function randomLoop(rng: Rng, temperature = 7): NavRoute {
   const ids = ['gate'];
   const seen = new Set<string>(['gate']);
   const used = new Set<string>();
-  const steps = 3 + Math.floor(rng() * 7);
+
+  const follow = (from: string, path: readonly string[]): string => {
+    let at = from;
+    for (const next of path.slice(1)) {
+      ids.push(next);
+      seen.add(next);
+      used.add(edgeKey(at, next));
+      at = next;
+    }
+    return at;
+  };
+
+  const goal = NAV_GOALS[Math.floor(rng() * NAV_GOALS.length)] ?? 'ne';
+  const outbound = aStar('gate', goal, seen, used);
+  let at = 'gate';
+  let previous: string | null = null;
+  if (outbound.length >= 2) {
+    at = follow('gate', outbound);
+    previous = outbound[outbound.length - 2] ?? null;
+  }
+
   /**
    * This afternoon's own taste in roads. A fresh multiplier per edge means a long way round
    * can be the favourite one afternoon and ignored the next; without it, an exponential cost
@@ -304,9 +336,9 @@ export function randomLoop(rng: Rng, temperature = 7): NavRoute {
     (1 / (1 + edge.length / temperature)) *
     (seen.has(edge.to) ? 0.18 : 1) *
     (used.has(edgeKey(edge.from, edge.to)) ? 0.04 : 1);
-  let at = 'gate';
-  let previous: string | null = null;
 
+  // A shorter wander than before: the purposeful first leg already used part of the afternoon.
+  const steps = 2 + Math.floor(rng() * 5);
   for (let i = 0; i < steps; i++) {
     const choices = (ADJACENCY.get(at) ?? []).filter(
       (e) => e.to !== previous && (e.to !== 'gate' || i >= steps - 2),
@@ -321,10 +353,10 @@ export function randomLoop(rng: Rng, temperature = 7): NavRoute {
     if (at === 'gate') break;
   }
   if (at !== 'gate') {
-    const home = shortestPath(at, 'gate', seen, used);
+    const home = aStar(at, 'gate', seen, used);
     ids.push(...home.slice(1));
   }
-  return buildRoute(ids);
+  return buildRoute(ids, goal);
 }
 
 /** Radius of the arc a corner is rounded to, metres. */
@@ -340,7 +372,7 @@ const CORNER_STEPS = 4;
  * is the same trick `yard-route.ts` uses at its corners, and it keeps a party in three lanes
  * from being thrown sideways when the walk turns a right angle.
  */
-export function buildRoute(ids: readonly string[]): NavRoute {
+export function buildRoute(ids: readonly string[], goal = ''): NavRoute {
   if (ids.length < 2) throw new RangeError('a walk needs at least two nodes');
   // The walk is written with the gate at both ends. Round it as a closed loop instead, so the
   // gate is one corner and the last point simply joins the first again.
@@ -411,7 +443,7 @@ export function buildRoute(ids: readonly string[]): NavRoute {
   }
   const length = s[s.length - 1] ?? 0;
   if (length <= 0) throw new RangeError('a walk cannot have zero length');
-  return { ids: [...ids], points, s, length };
+  return { ids: [...ids], goal, points, s, length };
 }
 
 /** Position `d` metres round the walk, `lateral` metres out from its line. */
