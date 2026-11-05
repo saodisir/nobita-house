@@ -37,6 +37,12 @@ export const FOLLOW_GAP = 0.62;
 export const YIELD_GAP = 1.6;
 /** Share of its pace a child keeps while giving way: zero, so it waits until the coast is clear. */
 export const YIELD_PACE = 0;
+/**
+ * A game holds its players still for eight seconds. Starting one while a player is inside a
+ * bystander would hold two bodies together for the whole of it, so a round waits for this much
+ * room between its players and everybody else before it begins.
+ */
+export const GAME_CLEAR = 0.6;
 
 interface Member {
   id: string;
@@ -153,14 +159,16 @@ export function replan(seed: number, elapsed = 0): WanderPlan {
   }
   clearGames();
 
-  // A walk of its own for each garden child, drawn from the same seed as the itinerary. A
-  // party shares one route object: three lanes off one distance only reads as shoulder to
-  // shoulder when that distance means the same place for all of them. Street walkers keep
-  // their measured lap and its exact home landing, which a new route would put at risk.
+  // One walk for the whole garden, drawn from the same seed as the itinerary. Drawing one
+  // per child let two independent walks run a hand's width apart, which no give-way rule can
+  // untangle; sharing one route object means three distinct lanes really are three separate
+  // strips of ground. Street walkers keep their measured lap and its exact home landing,
+  // which a new route would put at risk.
   const routeRng = seeded((seed ^ 0x9e3779b9) >>> 0);
   const door = housePath[0] ?? { x: 0, z: 0 };
+  const gardenRoute = randomLoop(routeRng);
   for (const party of plan.parties) {
-    const route = randomLoop(routeRng);
+    const route = gardenRoute;
     for (const index of party.members) {
       const member = members.find((m) => m.index === index);
       if (!member) continue;
@@ -171,11 +179,11 @@ export function replan(seed: number, elapsed = 0): WanderPlan {
   }
   for (const member of members) {
     if (member.state.kind !== 'yard' || member.state.route) continue;
-    const route = randomLoop(routeRng);
+    const route = gardenRoute;
     member.state.route = route;
     // A party starts together at the gate on purpose. A child on its own is given a little
-    // head start down its own walk instead, so the moment they all step out of the gate does
-    // not put two of them on the same spot with different routes to blame.
+    // head start down the same walk instead, so the moment they all step out of the gate does
+    // not put two of them on the same spot.
     member.state.u = route.length * (0.08 + routeRng() * 0.1);
     member.state.doorU = nearestOnRoute(route, door.x, door.z);
   }
@@ -211,6 +219,8 @@ function clearAhead(me: Member, walkers: readonly Member[]): number {
 
 /** One sample reused by the pairwise check, so a frame allocates nothing. */
 const yieldSample: WalkSample = { x: 0, y: 0, z: 0, heading: 0 };
+/** One sample reused by the game's spacing check. */
+const gameSample: WalkSample = { x: 0, y: 0, z: 0, heading: 0 };
 
 /**
  * Who gives way this frame, measured before anybody moves — the same reason the street's gaps
@@ -402,6 +412,20 @@ function tickGame(elapsed: number, all: readonly Member[]) {
       }
     }
     if (chosen.length < 2) continue;
+
+    // Freezing the group where it stands is only safe if nobody else is standing there too.
+    // The other loop is tried first; if both are crowded the round simply waits a moment.
+    const outsiders = all
+      .filter((m) => !seen.has(m.id) && isPlaying(m.state))
+      .map((m) => {
+        sampleWander(m.state, m.index, gameSample);
+        return { x: gameSample.x, z: gameSample.z };
+      });
+    const crowded = chosen.some((member) => {
+      sampleWander(member.state, member.index, gameSample);
+      return outsiders.some((o) => Math.hypot(gameSample.x - o.x, gameSample.z - o.z) < GAME_CLEAR);
+    });
+    if (crowded) continue;
 
     for (const member of chosen) member.state.game = spec.clip;
     game = { clip: spec.clip, until: elapsed + spec.seconds };

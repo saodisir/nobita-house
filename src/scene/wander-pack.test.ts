@@ -4,7 +4,15 @@ import { NAV_OBSTACLES } from '../data/nav-graph';
 import { loopPosition, RUN_SPEED, WALK_LOOP_LENGTH, type WalkSample } from '../data/walk-routes';
 import { GAME_CLIPS } from './walk-clips';
 import { createWander, isPlaying, sampleWander, type WanderState } from './wander';
-import { advancePack, clearPack, FOLLOW_GAP, joinPack, planSeed, setNextPlanSeed } from './wander-pack';
+import {
+  advancePack,
+  clearPack,
+  FOLLOW_GAP,
+  GAME_CLEAR,
+  joinPack,
+  planSeed,
+  setNextPlanSeed,
+} from './wander-pack';
 
 /** A fixed afternoon, so the pack's assertions do not depend on the clock or Math.random(). */
 const SEED = 20261104;
@@ -276,10 +284,14 @@ describe('wander pack', () => {
     expect(street.every((s) => s.route === null)).toBe(true);
     const party = yard.filter((s) => s.party !== null);
     expect(party.length).toBeGreaterThanOrEqual(2);
-    expect(party.every((s) => s.route === party[0]?.route)).toBe(true);
-    // Every drawn walk starts at the gate, which is where the three-leg walk out of the yard
-    // ends; starting anywhere else would send a child across the house to reach its lap.
-    expect(yard.every((s) => s.u === 0)).toBe(true);
+    // One walk for the whole garden, so a lane each is what keeps the children apart.
+    expect(yard.every((s) => s.route === yard[0]?.route)).toBe(true);
+    expect(new Set(yard.map((s) => s.lateral)).size).toBe(yard.length);
+    // A party leaves the gate together. A child on its own gets a short head start down the
+    // same walk, so the moment they all step out of the gate is not two bodies on one spot.
+    expect(party.every((s) => s.u === 0)).toBe(true);
+    const solo = yard.filter((s) => s.party === null);
+    expect(solo.every((s) => s.u > 0 && s.u < (s.route?.length ?? 0) * 0.25)).toBe(true);
     expect(yard.every((s) => s.doorU < 0.5)).toBe(true);
   });
 
@@ -306,10 +318,12 @@ describe('wander pack', () => {
     expect(walks()).not.toEqual(first);
   });
 
-  it('keeps children on different walks out of each other for a whole afternoon', () => {
+  it('keeps children on the garden walk out of each other for a whole afternoon', () => {
     const slots: WalkSample[] = characters.map(() => ({ x: 0, y: 0, z: 0, heading: 0 }));
     let overlapFrames = 0;
-    for (const seed of [SEED, 7, 31, 12345, 999]) {
+    // 31689 draws a walk that passes close to itself: two children reach the same patch of
+    // ground at different distances round it, and a game once froze them together for 8 s.
+    for (const seed of [SEED, 7, 31, 12345, 999, 31689]) {
       const states = mount(seed);
       for (let step = 0; step < 60 * 180; step++) {
         advancePack(step * DT, true);
@@ -331,9 +345,45 @@ describe('wander pack', () => {
         }
       }
     }
-    // Five afternoons of three minutes. Before the lane normals were put back to unit length
-    // and the give-way rule was added, this was 27 seconds of children inside one another.
-    expect(overlapFrames / 60).toBeLessThan(3);
+    // Six afternoons of three minutes. Before the garden shared one walk with a lane each,
+    // sixty afternoons measured 38 s of children inside one another; this measures 3.3 s.
+    expect(overlapFrames / 60).toBeLessThan(1.5);
+  });
+
+  it('waits for room around a game before it freezes anybody', () => {
+    // A game holds its players still for eight seconds, so starting one on top of a bystander
+    // is the one way a brief pass-through turns into a long overlap. Catch the frame the game
+    // begins and check there was room around everybody who joined it.
+    const states = mount(31689);
+    const slots: WalkSample[] = characters.map(() => ({ x: 0, y: 0, z: 0, heading: 0 }));
+    let crowdedStarts = 0;
+    let inGame = new Set<number>();
+    for (let step = 0; step < 60 * 120; step++) {
+      advancePack(step * DT, true);
+      const now = new Set(states.flatMap((state, index) => (state.game !== null ? [index] : [])));
+      const joined = [...now].filter((index) => !inGame.has(index));
+      if (joined.length > 0) {
+        const places = states.map((state, index) => {
+          const slot = slots[index];
+          if (!slot) throw new Error(`no slot at ${index}`);
+          sampleWander(state, index, slot);
+          return { x: slot.x, z: slot.z };
+        });
+        for (const index of joined) {
+          const me = places[index];
+          if (!me) continue;
+          crowdedStarts += states.filter((state, other) => {
+            // Players are meant to be close to one another; it is a bystander standing in
+            // the group that a frozen game must not be started on top of.
+            if (other === index || now.has(other) || !isPlaying(state)) return false;
+            const spot = places[other];
+            return spot ? Math.hypot(me.x - spot.x, me.z - spot.z) < GAME_CLEAR : false;
+          }).length;
+        }
+      }
+      inGame = now;
+    }
+    expect(crowdedStarts).toBe(0);
   });
 
   it('keeps a garden child on its drawn walk, clear of the house', () => {

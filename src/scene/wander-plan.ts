@@ -115,6 +115,17 @@ export function makePlan(seed: number, members: readonly PlanMember[]): WanderPl
   const child = new Map<number, ChildPlan>();
   const allIndexes = members.map((m) => m.index);
 
+  /**
+   * One lane each, drawn without replacement. The garden children share the afternoon's one
+   * walk, so two of them on the same strip of ground would be two bodies in one place even
+   * at different distances round it. These are the three strips the nav graph cleared.
+   */
+  const laneOrder = shuffle(rng, [...LANES]);
+  const laneOf = new Map<number, number>();
+  for (const [i, m] of members.filter((m) => m.kind === 'yard').entries()) {
+    laneOf.set(m.index, laneOrder[i % laneOrder.length] ?? 0);
+  }
+
   for (const member of members) {
     child.set(member.index, {
       // A first walk long enough that a ten-second look at the scene always shows them moving,
@@ -123,7 +134,7 @@ export function makePlan(seed: number, members: readonly PlanMember[]): WanderPl
       restFor: between(rng, 2.5, 6.5),
       departure: between(rng, 0, 2.2),
       pace: between(rng, 0.9, 1.15),
-      lateral: member.kind === 'yard' ? pick(rng, LANES) : 0,
+      lateral: laneOf.get(member.index) ?? 0,
     });
   }
 
@@ -138,18 +149,13 @@ export function makePlan(seed: number, members: readonly PlanMember[]): WanderPl
     // here, where the loop already has three lanes to put them in.
     const size = Math.min(yard.length, rng() < 0.45 ? 3 : 2);
     const chosen = yard.slice(0, size);
-    const lanes = shuffle(rng, size === 2 ? [-0.35, 0.35] : [...LANES]);
     const party: Party = {
       id: 1,
       leader: chosen[0]?.index ?? -1,
       members: chosen.map((m) => m.index),
-      lanes: chosen.map((_, i) => lanes[i] ?? 0),
+      lanes: chosen.map((m) => laneOf.get(m.index) ?? 0),
     };
     parties.push(party);
-    for (const [i, m] of chosen.entries()) {
-      const c = child.get(m.index);
-      if (c && party.lanes[i] !== undefined) c.lateral = party.lanes[i] as number;
-    }
   }
 
   const games: GameRound[] = [];
