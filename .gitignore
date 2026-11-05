@@ -31,6 +31,14 @@ id_ed25519*
 assets/raw/**
 !assets/raw/.gitkeep
 
+# Reference art and research stills are local working material, not distributed.
+# The generated ones come back with `bun run gen:refs`; the house stills are
+# third-party reference images the floor plan was measured from. See
+# docs/asset-pipeline.md and README.md > Assets and credits.
+assets/ref/
+assets/*.jpg
+assets/*.png
+
 # os / editor
 .DS_Store
 Thumbs.db

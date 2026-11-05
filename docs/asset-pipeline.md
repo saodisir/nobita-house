@@ -23,6 +23,8 @@ Two back-ends, picked by whichever key is in `.env` or forced with `--provider`.
 
 Output: `assets/ref/<subject>/<view>.png`.
 
+**These images stay on the machine.** `assets/ref/` and the house stills at the top of `assets/` are gitignored and are not part of the distributed repository: they are generated or collected reference art, including third-party material, and the build reads none of them (`.vercelignore` excludes `assets/` entirely). A fresh clone has no reference images — run `bun run gen:refs -- --all` to regenerate the views you need, and supply the house stills yourself if you want to re-measure the floor plan. The shipped GLBs in `public/models/` are already built, so none of this is needed to run the app. `scripts/make-textures.py` treats `assets/ref/tile-*/front.png` as an optional source and falls back to procedural noise when it is absent.
+
 Only Gemini accepts an image as input, which is what keeps one subject consistent across angles: the front view is generated first and passed back for the others. Z.AI is text-to-image, so a second view would be a second object, not a second angle — it defaults to one view, and that single image is enough for a Rodin single-image run.
 
 Z.AI also refuses any prompt that names a copyrighted film. Bisected on 2026-09-19: the futon prompt failed on the words *Stand By Me Doraemon* and passed with everything else intact, so that provider swaps in `STYLE_NEUTRAL`, which describes the same look without citing it. Its responses hand back a URL a second or two before the file exists, so downloads retry through the 404.
@@ -279,7 +281,8 @@ The house editor (`/editor`) does not load a GLB: it builds its house in the bro
 
 | Path | Contents | Tracked |
 |---|---|---|
-| `assets/ref/<subject>/` | Gemini reference PNGs | yes |
+| `assets/ref/<subject>/` | Gemini / Z.AI reference PNGs | no — local only, regenerate with `bun run gen:refs` |
+| `assets/*.jpg`, `assets/*.png` | House stills and floor plans the plan was measured from | no — local only, third-party reference material |
 | `assets/raw/rodin/<subject>/` | Rodin downloads, as delivered | no |
 | `assets/raw/final/` | Blender exports, pre-optimisation | no |
 | `public/models/` | Optimised GLBs the app loads | yes |

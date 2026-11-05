@@ -58,13 +58,13 @@ The scene targets 60 FPS on desktop. Current numbers and budgets are in [docs/te
 Requires [bun](https://bun.sh).
 
 ```sh
-git clone https://github.com/lnanhkhoa/nobita-house-3d.git
-cd nobita-house-3d
+git clone https://github.com/saodisir/nobita-house.git
+cd nobita-house
 bun install
 bun run dev        # http://localhost:5173
 ```
 
-The optimised models in `public/models/` are committed, so the app runs straight after cloning. No environment variables are needed.
+The optimised models in `public/models/` are committed, so the app runs straight after cloning. No environment variables are needed. Reference images and the house stills under `assets/` are deliberately not in the repository; see [Assets and credits](#assets-and-credits).
 
 | Script | Does |
 |---|---|
@@ -97,7 +97,7 @@ docs/              tech stack, asset pipeline, design guidelines, deployment
 The characters started as reference images, went through image-to-3D on Hyper3D Rodin, were rigged and animated with Mixamo, and were cleaned up in Blender. The streets, neighbour lots and plants are built procedurally by Blender Python scripts; Nobita's house is built in the browser (below). Everything is then compressed with gltf-transform (dedup, weld, texture resize, meshopt). The full runbook is in [docs/asset-pipeline.md](docs/asset-pipeline.md).
 
 Nobita's house is not a model file. `src/editor/house/plan.ts` is the house as data, measured
-from its own floor plan in `assets/drawings.jpg`: both storeys, fifteen rooms, every wall,
+from its own floor plan in `assets/drawings.jpg` (a local reference still, not shipped): both storeys, fifteen rooms, every wall,
 window, door and piece of furniture, the stair and the roofs of `assets/home.jpg`. The browser
 builds it from that data, and the diorama and `/editor` build the same house:
 `src/data/house-site.ts` sets it on the lot with its front door on the gate's axis, a 2 m stone
@@ -112,6 +112,15 @@ never passes through a wall; every door, and the glass doors onto the garden, op
 - [docs/asset-pipeline.md](docs/asset-pipeline.md): reference image to GLB
 - [docs/design-guidelines.md](docs/design-guidelines.md): visual and UI direction
 - [docs/deployment.md](docs/deployment.md): Vercel deploy and rollback
+
+## Assets and credits
+
+- **Upstream.** This project continues from [lnanhkhoa/nobita-house-3d](https://github.com/lnanhkhoa/nobita-house-3d), which is where the house, the neighbourhood, the character studio and the deployment runbook started. The free-roam afternoons, first/third-person walking, doors and the View menu, and the scripted story were added here. The upstream repository publishes no LICENSE file.
+- **Reference art is not shipped.** `assets/ref/` and the house stills at the top of `assets/` are local working material and are gitignored; `.vercelignore` also excludes `assets/` from builds. Regenerate the generated views with `bun run gen:refs -- --all` ([docs/asset-pipeline.md](docs/asset-pipeline.md)). The optimised GLBs in `public/models/` are committed and are all the app needs.
+- **Background music is original.** `public/audio/background-music.mp3` is a 48-second loop synthesised by [scripts/make-background-music.py](scripts/make-background-music.py): a four-chord pad with a pentatonic bell melody, no samples and no third-party recording. Regenerate it with `python3 scripts/make-background-music.py` (needs ffmpeg and numpy).
+- **Characters.** Doraemon and the other characters, and the models derived from them, remain © Fujiko Pro / Shogakukan / TV Asahi. No rights are granted over them.
+
+There is no LICENSE file in this repository yet.
 
 ## Disclaimer
 
