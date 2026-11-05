@@ -196,6 +196,21 @@ describe('the garden walk graph', () => {
     }
   });
 
+  it('keeps two lanes their full width apart through every corner', () => {
+    // Interpolating two unit normals at a corner used to leave a 0.64-length vector, which
+    // quietly pulled a party's 0.55 m lanes 0.2 m closer together — inside one another.
+    const a = blank();
+    const b = blank();
+    for (let seed = 0; seed < 25; seed++) {
+      const route = randomLoop(seeded(seed));
+      for (let d = 0; d < route.length; d += 0.05) {
+        sampleRoute(route, d, -0.55, a);
+        sampleRoute(route, d, 0.55, b);
+        expect(Math.hypot(a.x - b.x, a.z - b.z), `seed ${seed} at ${d.toFixed(2)}`).toBeGreaterThan(1.09);
+      }
+    }
+  });
+
   it('replays a destination exactly and visits many different places', () => {
     expect(randomLoop(seeded(31)).goal).toBe(randomLoop(seeded(31)).goal);
     const goals = new Set(Array.from({ length: 40 }, (_, seed) => randomLoop(seeded(seed)).goal));

@@ -231,14 +231,16 @@ function gateLegs(state: WanderState, lap: WalkSample) {
  * pleases; off, it heads home (street) or comes to a stop (yard).
  *
  * `clearAhead` is the empty road in front of a street walker, metres, past the gap it keeps;
- * `wander-pack.ts` measures it against the other five. Yard walkers ignore it — their laps
- * are their own, on lanes of their own.
+ * `wander-pack.ts` measures it against the other five. `yieldFactor` does the same job for a
+ * garden walker: when another child has come too close it scales this one's target pace down,
+ * so it eases to a near-stop and lets the other pass instead of walking through them.
  */
 export function advanceWander(
   state: WanderState,
   dt: number,
   walking: boolean,
   clearAhead = Number.POSITIVE_INFINITY,
+  yieldFactor = 1,
 ) {
   /** Standing still for a game, which stops the walk the same way a pause does but sooner. */
   const playing = state.game !== null;
@@ -333,7 +335,7 @@ export function advanceWander(
   // Coming out of a pause near the front door, this child goes in. Anywhere else on the lap it
   // keeps walking: the walk into the house starts at one point, and walking twenty metres
   // across the garden to reach it is not what a child does with an afternoon.
-  const target = walking && !state.paused && !playing ? YARD_SPEED * state.pace : 0;
+  const target = walking && !state.paused && !playing ? YARD_SPEED * state.pace * yieldFactor : 0;
   // Exponential easing: a child in a garden does not start and stop on a dime like a car.
   state.speed += (target - state.speed) * (1 - Math.exp(-dt / YARD_EASE));
   // Standing still on the lap while walking out of the gate: the child is crossing the

@@ -464,10 +464,19 @@ export function sampleRoute(route: NavRoute, d: number, lateral: number, out: Na
   const f = Math.min(1, Math.max(0, (t - s0) / Math.max(1e-9, s1 - s0)));
   const nx = a.nx + (b.nx - a.nx) * f;
   const nz = a.nz + (b.nz - a.nz) * f;
+  /**
+   * Two unit normals at a corner do not interpolate into another unit normal: near a right
+   * angle the mean is only 0.7 long, and around the house's corners it falls to 0.64. Left
+   * alone, a party's 0.55 m of lane quietly collapses to 0.35 m and the children overlap.
+   * Put the interpolated direction back to unit length before it measures a lane.
+   */
+  const nLen = Math.hypot(nx, nz) || 1;
+  const ux = nx / nLen;
+  const uz = nz / nLen;
   const dx = b.x - a.x;
   const dz = b.z - a.z;
-  out.x = a.x + dx * f + nx * lateral;
-  out.z = a.z + dz * f + nz * lateral;
+  out.x = a.x + dx * f + ux * lateral;
+  out.z = a.z + dz * f + uz * lateral;
   out.y = YARD_Y;
   out.heading = Math.atan2(dx, dz);
   return out;

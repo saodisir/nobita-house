@@ -1,7 +1,7 @@
 import { housePath } from '../data/house-path';
 import { nearestOnRoute, randomLoop } from '../data/nav-graph';
-import { loopPosition, WALK_LOOP_LENGTH } from '../data/walk-routes';
-import { advanceWander, isPlaying, type WanderState } from './wander';
+import { loopPosition, WALK_LOOP_LENGTH, type WalkSample } from '../data/walk-routes';
+import { advanceWander, isPlaying, sampleWander, type WanderState } from './wander';
 import { freshSeed, makePlan, type PlanKind, seeded, type WanderPlan } from './wander-plan';
 
 /**
@@ -26,6 +26,17 @@ import { freshSeed, makePlan, type PlanKind, seeded, type WanderPlan } from './w
  * as children walking together, far enough that they never look like one model.
  */
 export const FOLLOW_GAP = 0.62;
+
+/**
+ * How close two garden children may come before one gives way, measured in the world because
+ * their walks are different loops and a distance round one lap no longer describes them both.
+ * A body is 0.36 m across; 1.6 m looks generous, but a child eases to a stop rather than
+ * braking on a dime, and the sweep across five afternoons found this the point where contact
+ * stops happening without the garden standing still.
+ */
+export const YIELD_GAP = 1.6;
+/** Share of its pace a child keeps while giving way: zero, so it waits until the coast is clear. */
+export const YIELD_PACE = 0;
 
 interface Member {
   id: string;
@@ -162,7 +173,10 @@ export function replan(seed: number, elapsed = 0): WanderPlan {
     if (member.state.kind !== 'yard' || member.state.route) continue;
     const route = randomLoop(routeRng);
     member.state.route = route;
-    member.state.u = 0;
+    // A party starts together at the gate on purpose. A child on its own is given a little
+    // head start down its own walk instead, so the moment they all step out of the gate does
+    // not put two of them on the same spot with different routes to blame.
+    member.state.u = route.length * (0.08 + routeRng() * 0.1);
     member.state.doorU = nearestOnRoute(route, door.x, door.z);
   }
 
@@ -193,6 +207,50 @@ function clearAhead(me: Member, walkers: readonly Member[]): number {
     clear = Math.min(clear, ahead - FOLLOW_GAP);
   }
   return clear;
+}
+
+/** One sample reused by the pairwise check, so a frame allocates nothing. */
+const yieldSample: WalkSample = { x: 0, y: 0, z: 0, heading: 0 };
+
+/**
+ * Who gives way this frame, measured before anybody moves — the same reason the street's gaps
+ * are read first. Two children on different walks can meet anywhere in the garden, so the
+ * only distance that matters is the one between the places they are standing right now.
+ *
+ * The later child in the roster yields, which is a stable rule and never leaves both of them
+ * waiting for the other. A party is one body for this purpose: its leader carries the decision
+ * and `syncParties` copies the resulting speed to everyone in it. Two children in the same
+ * party are already shoulder to shoulder on purpose, so they are left alone.
+ */
+function yardYield(all: readonly Member[]): Map<Member, number> {
+  const factors = new Map<Member, number>();
+  const spots = all
+    .filter((m) => m.state.kind === 'yard' && isPlaying(m.state))
+    .map((m) => {
+      sampleWander(m.state, m.index, yieldSample);
+      return { member: m, x: yieldSample.x, z: yieldSample.z };
+    });
+  const leaders = new Map<number, Member>();
+  for (const member of all) {
+    const party = member.state.party;
+    if (party !== null && member.state.partyLeader && !leaders.has(party)) {
+      leaders.set(party, member);
+    }
+  }
+  for (let i = 0; i < spots.length; i++) {
+    for (let j = i + 1; j < spots.length; j++) {
+      const a = spots[i];
+      const b = spots[j];
+      if (!a || !b) continue;
+      const party = a.member.state.party;
+      if (party !== null && party === b.member.state.party) continue;
+      if (Math.hypot(a.x - b.x, a.z - b.z) >= YIELD_GAP) continue;
+      const later = a.member.index > b.member.index ? a.member : b.member;
+      const yielder = later.state.party === null ? later : (leaders.get(later.state.party) ?? later);
+      factors.set(yielder, YIELD_PACE);
+    }
+  }
+  return factors;
 }
 
 /**
@@ -266,10 +324,11 @@ export function advancePack(elapsed: number, walking: boolean, held: string | nu
   // where it used to be, which is the one thing a following walker must not aim at.
   const clear = new Map<Member, number>();
   for (const mine of street) clear.set(mine, clearAhead(mine, street));
+  const yielding = yardYield(all);
 
   for (const member of all) {
     const clearOf = clear.get(member) ?? Number.POSITIVE_INFINITY;
-    advanceWander(member.state, dt, walking, clearOf);
+    advanceWander(member.state, dt, walking, clearOf, yielding.get(member) ?? 1);
   }
   syncParties(all);
 

@@ -14,9 +14,9 @@ const BODY = 0.36;
 const DT = 1 / 60;
 const mod = (a: number, m: number) => ((a % m) + m) % m;
 
-function mount(): WanderState[] {
+function mount(seed = SEED): WanderState[] {
   clearPack();
-  setNextPlanSeed(SEED);
+  setNextPlanSeed(seed);
   const states = characters.map((child, index) => createWander(index, child));
   for (const [index, state] of states.entries()) {
     const child = characters[index];
@@ -304,6 +304,36 @@ describe('wander pack', () => {
     setNextPlanSeed(SEED + 1);
     advancePack(DT * 4, true);
     expect(walks()).not.toEqual(first);
+  });
+
+  it('keeps children on different walks out of each other for a whole afternoon', () => {
+    const slots: WalkSample[] = characters.map(() => ({ x: 0, y: 0, z: 0, heading: 0 }));
+    let overlapFrames = 0;
+    for (const seed of [SEED, 7, 31, 12345, 999]) {
+      const states = mount(seed);
+      for (let step = 0; step < 60 * 180; step++) {
+        advancePack(step * DT, true);
+        const out: { x: number; z: number }[] = [];
+        states.forEach((state, index) => {
+          if (state.kind !== 'yard' || !isPlaying(state)) return;
+          const slot = slots[index];
+          if (!slot) throw new Error(`no slot at ${index}`);
+          sampleWander(state, index, slot);
+          out.push({ x: slot.x, z: slot.z });
+        });
+        for (let i = 0; i < out.length; i++) {
+          for (let j = i + 1; j < out.length; j++) {
+            const a = out[i];
+            const b = out[j];
+            if (!a || !b) continue;
+            if (Math.hypot(a.x - b.x, a.z - b.z) < BODY) overlapFrames++;
+          }
+        }
+      }
+    }
+    // Five afternoons of three minutes. Before the lane normals were put back to unit length
+    // and the give-way rule was added, this was 27 seconds of children inside one another.
+    expect(overlapFrames / 60).toBeLessThan(3);
   });
 
   it('keeps a garden child on its drawn walk, clear of the house', () => {
