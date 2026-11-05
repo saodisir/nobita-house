@@ -10,6 +10,7 @@ import { pick } from './i18n/locale';
 import { useLocale, useT } from './i18n/use-i18n';
 import { PerfProbe } from './scene/perf-probe';
 import { Scene } from './scene/scene';
+import { StoryRunner } from './scene/story-runner';
 import { preflightModels, useAppStore } from './state/store';
 import { PerfStats, Title, ViewControls } from './ui/chrome';
 import { InfoCard } from './ui/info-card';
@@ -17,6 +18,7 @@ import { LoadingVeil } from './ui/loading-veil';
 import { MenusToggle } from './ui/menus-toggle';
 import { PoseBar } from './ui/pose-bar';
 import { type PlacedPin, RoomPins, RoomPinTracker } from './ui/room-pins';
+import { StoryChrome } from './ui/story-chrome';
 
 /**
  * Everything the scene can put on screen, HEAD-checked once before the canvas mounts.
@@ -80,6 +82,8 @@ export function App() {
         }
       >
         <Scene />
+        {/* The story's clock is the render clock, so its player lives inside the Canvas. */}
+        <StoryRunner />
         <RoomPinTracker onPlace={setPins} />
         {showPerf && <PerfProbe />}
       </Canvas>
@@ -118,6 +122,8 @@ export function App() {
         <InfoCard />
         <PoseBar />
         <RoomPins placed={pins} />
+        {/* Fixed dialogue box and the one button that starts the story. */}
+        <StoryChrome />
         {walking && drivingSelf && (
           <div className="walk-hint" role="status">
             <span>

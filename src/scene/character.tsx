@@ -6,6 +6,7 @@ import { config } from '../config';
 import type { CharacterDef } from '../data/characters';
 import { poseFor } from '../state/character-poses';
 import { useAppStore } from '../state/store';
+import { useStoryStore } from '../state/story';
 import { prefersReducedMotion } from '../utils/reduced-motion';
 import { type LoadedGltf, ModelOrProxy } from './model-or-proxy';
 import { useCharacterMotion } from './use-character-motion';
@@ -93,6 +94,7 @@ function LoadedCharacter({
 }) {
   const group = useRef<Group>(null);
   const { actions, mixer } = useAnimations(gltf.animations, group);
+  const storyPlaying = useStoryStore((s) => s.status === 'playing');
   // Read straight off the clips during render, so the very first frame already has the pose.
   const rest = restFor(def, gltf.animations);
   // Paused out on a route, the child does whatever the place allows: a game with the others,
@@ -101,7 +103,12 @@ function LoadedCharacter({
   // coping — an offset that would hang a child in mid-air if it were applied out in the yard.
   const paused = resting && !moving;
   const own = possessed ? standClipFor(gltf.animations) : rest.clip;
-  const held = paused ? (pauseClipFor(index, gltf.animations, outside, game) ?? own) : own;
+  const ambient = paused ? (pauseClipFor(index, gltf.animations, outside, game) ?? own) : own;
+  // The afternoon's pause clips are games, dances and cheers. While a story plays the script
+  // owns everybody, so a child with no forced clip (one that has just finished a walk, say)
+  // holds a plain standing idle rather than breaking into a dance between two lines. Walking
+  // still takes the walk/run clip below; this only decides the pose when the feet are still.
+  const held = storyPlaying ? standClipFor(gltf.animations) : ambient;
   // A clip picked in the motion bar wins over everything while the child stands still; the
   // moment it is asked to walk, the walk takes over — a dance played over a travelling body
   // reads as a child sliding along the pavement.
@@ -289,7 +296,10 @@ export function Character({ def, index }: { def: CharacterDef; index: number }) 
   const poseClip = useAppStore((s) => s.poseClip);
   // Only while it stands still: asked to walk, the walk clip is the honest one and a dance played
   // over a travelling body reads as the child sliding along the pavement.
-  const forced = possessed && !moving ? poseClip : null;
+  // A scripted clip wins while the story plays, but only ever for a child standing still:
+  // the player already keeps `go` and `clip` off the same actor in one beat.
+  const storyClip = useStoryStore((s) => (s.status === 'playing' ? s.clips[def.id] : undefined));
+  const forced = storyClip ?? (possessed && !moving ? poseClip : null);
   const [clips, setClips] = useState<ClipPresence>({
     welcome: false,
     walk: false,

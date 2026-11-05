@@ -1,0 +1,82 @@
+/* The story's chrome: one launch button, one fixed dialogue box. */
+
+/* Above the title card on the left, the toolbar on the right, and the full-width bottom bar
+   a compact layout puts at the foot of the screen. On a phone that bottom bar is a solid
+   panel from left: 12 to right: 12, so a button down there is not merely overlapped — it
+   cannot be clicked. `z-index` keeps it above the menus layer on desktop too. */
+.story-launch {
+  position: absolute;
+  right: 16px;
+  top: 96px;
+  z-index: 5;
+  pointer-events: auto;
+  padding: 10px 16px;
+  /* A solid paper fill instead of the shared panel's backdrop-filter: this small pill sits
+     over the sky, where a blur adds nothing and costs an extra composited layer. */
+  background: var(--paper-100);
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
+  box-shadow: var(--sh-1);
+  color: var(--ink-900);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--d-hover),
+    color var(--d-hover);
+}
+.story-launch:hover {
+  background: var(--paper-100);
+}
+.story-launch:active {
+  transform: scale(0.97);
+}
+
+/* Centred with margins, not translateX: the motion entry animation owns `transform` and a
+   CSS centring transform would be overwritten on the first frame. */
+.story-dialog {
+  position: absolute;
+  left: 0;
+  right: 0;
+  /* Desktop keeps the toolbar at the top, so the box can sit right at the foot of the frame
+     without covering the child in the middle of the front row. Compact layout raises it. */
+  bottom: 24px;
+  z-index: 4;
+  width: min(560px, calc(100vw - 32px));
+  margin: 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 14px 20px;
+  pointer-events: none;
+}
+.story-dialog__who {
+  flex: none;
+  padding-left: 10px;
+  border-left: 3px solid currentColor;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.story-dialog__line {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-900);
+}
+
+@media (max-width: 767px) {
+  .story-launch {
+    right: 12px;
+    top: 88px;
+    padding: 9px 14px;
+  }
+  .story-dialog {
+    bottom: 72px;
+    gap: 10px;
+    padding: 12px 14px;
+  }
+  .story-dialog__line {
+    font-size: 14px;
+  }
+}

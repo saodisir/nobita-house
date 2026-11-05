@@ -9,6 +9,7 @@ import { allLots, layout } from '../data/scene';
 import { type ControlMode, LOOK_AROUND, ORBIT_MOUSE, ORBIT_TOUCH, ZOOM_RANGE } from '../editor/look-around';
 import { characterPoses } from '../state/character-poses';
 import { useAppStore } from '../state/store';
+import { useStoryStore } from '../state/story';
 import { prefersReducedMotion, useReducedMotionRef } from '../utils/reduced-motion';
 import { useInteriorCamera } from './use-interior-camera';
 
@@ -119,6 +120,24 @@ export function CameraRig() {
   const camera = useThree((s) => s.camera);
   const scene = useThree((s) => s.scene);
   const gl = useThree((s) => s.gl);
+  /** A beat that asks for a lens cut. `null` holds the orbit wherever the last cut left it. */
+  const storyCamera = useStoryStore((s) => s.camera);
+  // The script drives no selected or possessed child, so the frame loop below leaves the
+  // orbit alone and one transitioned setLookAt is all a cut needs. `finishStory` resets the
+  // token, which puts the lens back on the gate if the visitor dragged it by hand meanwhile.
+  useEffect(() => {
+    const c = controls.current;
+    if (!c || !storyCamera || useStoryStore.getState().status !== 'playing') return;
+    c.setLookAt(
+      storyCamera.eye[0],
+      storyCamera.eye[1],
+      storyCamera.eye[2],
+      storyCamera.look[0],
+      storyCamera.look[1],
+      storyCamera.look[2],
+      !prefersReducedMotion(),
+    );
+  }, [storyCamera]);
   useEffect(() => {
     if (import.meta.env.DEV)
       (window as unknown as { __cam: unknown }).__cam = { camera, controls, scene, gl };

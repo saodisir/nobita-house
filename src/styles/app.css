@@ -1,4 +1,5 @@
 @import "./tokens.css";
+@import "./story.css";
 
 * {
   box-sizing: border-box;

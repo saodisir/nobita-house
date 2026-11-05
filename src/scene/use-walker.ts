@@ -6,6 +6,7 @@ import { housePathDoors } from '../data/house-path';
 import { RUN_SPEED, type WalkSample } from '../data/walk-routes';
 import { poseFor } from '../state/character-poses';
 import { useAppStore } from '../state/store';
+import { storyPoseFor, useStoryStore } from '../state/story';
 import { walkerPose } from './free-walk';
 import { RUN_AT } from './walk-clips';
 import { createWander, isPlaying, sampleWander, type WanderState, wanderSpeed } from './wander';
@@ -150,6 +151,34 @@ export function useWalker(ref: RefObject<Group | null>, index: number, def: Char
     // The whole pack steps once per frame; the first walker to be visited does it for all six.
     // The child under the hand is left out of that pass — see `advancePack`.
     advancePack(frame.clock.elapsedTime, store.walkMode, store.possessedId);
+
+    // While a story plays the script owns the children. The wander sampler keeps running so
+    // the afternoon can pick up again afterwards, but its answer is ignored here: a seeded
+    // stroll must not pull somebody out of a beat they are in the middle of acting.
+    // `resting: !moving` also drops the wall sitters' authored rest offset — see the offset
+    // rule in `character.tsx` — so nobody is left hanging over the coping they sat on.
+    if (useStoryStore.getState().status === 'playing') {
+      const scripted = storyPoseFor(def.id);
+      if (scripted) {
+        group.position.set(scripted.x, scripted.y, scripted.z);
+        group.rotation.set(0, scripted.heading, 0);
+        body.position.copy(group.position);
+        body.heading = scripted.heading;
+        body.speed = scripted.speed;
+        body.moving = scripted.moving;
+        body.resting = !scripted.moving;
+        publish({
+          moving: scripted.moving,
+          resting: !scripted.moving,
+          // The long crossings use a quicker pace; give them the run clip, the same test
+          // the wander walker uses, so fast feet do not skate on a walking cycle.
+          running: scripted.speed >= RUN_AT * RUN_SPEED,
+          outside: true,
+          game: null,
+        });
+        return;
+      }
+    }
 
     // Held: the lap stops mattering and `FreeWalk`'s one walker takes over. This frame only
     // copies its answer onto the group and onto `characterPoses`, which is what the camera

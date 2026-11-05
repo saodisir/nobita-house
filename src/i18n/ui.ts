@@ -27,6 +27,11 @@ export const UI = {
   // --- toolbar -----------------------------------------------------------------------------
   toolbar: { en: 'View', zh: '视图' },
   settings: { en: 'Settings', zh: '设置' },
+
+  // --- the scripted story ------------------------------------------------------------------
+  storyPlay: { en: 'Play a story', zh: '演一段故事' },
+  storyReplay: { en: 'Play it again', zh: '再演一次' },
+  storyDialog: { en: 'Story dialogue', zh: '故事对话' },
   langSwitchTo: { en: 'Switch to {language}', zh: '切换到{language}' },
 
   // --- where you are -----------------------------------------------------------------------
