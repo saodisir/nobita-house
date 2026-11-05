@@ -6,7 +6,6 @@ import { Environment } from './environment';
 import { Fireflies } from './fireflies';
 import { Foliage } from './foliage';
 import { FreeWalk } from './free-walk';
-import { HdriEnvironment } from './hdri-environment';
 import { House } from './house';
 import { InteriorLighting } from './interior-lighting';
 import { LawnGrass } from './lawn-grass';

@@ -273,7 +273,7 @@ describe('wander pack', () => {
     expect(gameFrames).toBeGreaterThan(0);
   });
 
-  it('draws a walk of its own for the garden, shared by a party, on every switch', () => {
+  it('draws one walk for the whole garden, with a lane each, on every switch', () => {
     const states = mount();
     advancePack(0, true);
     const yard = states.filter((s) => s.kind === 'yard');

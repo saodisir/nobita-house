@@ -35,13 +35,13 @@ export interface CharacterDef {
   /** Held at home instead of the standing pose. */
   rest?: RestPose;
   /**
-   * Which loop this child takes when walk mode is on: the street round the block
-   * (`walk-routes.ts`), or the yard round the house (`yard-route.ts`).
+   * Where this child walks when stroll is on: the street round the block (`walk-routes.ts`),
+   * or the garden round the house (`nav-graph.ts`).
    *
    * Split by who would actually be where, so the two groups read as two things happening at
    * once rather than six people on one errand: Nobita's own household — Nobita, Doraemon and
    * Shizuka, who came round to see him — are in the garden, and Gian, Suneo and Dekisugi are
-   * out on the street. The yard loop is per child, so the three there never walk in step.
+   * out on the street. The three in the garden share one afternoon's walk on separate lanes.
    */
   wander: 'street' | 'yard';
   /**

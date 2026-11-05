@@ -224,8 +224,9 @@ const gameSample: WalkSample = { x: 0, y: 0, z: 0, heading: 0 };
 
 /**
  * Who gives way this frame, measured before anybody moves — the same reason the street's gaps
- * are read first. Two children on different walks can meet anywhere in the garden, so the
- * only distance that matters is the one between the places they are standing right now.
+ * are read first. The garden children share one walk on separate lanes, but a game or a pause
+ * can still bring two of them together, so the only distance that matters is the one between
+ * the places they are standing right now.
  *
  * The later child in the roster yields, which is a stable rule and never leaves both of them
  * waiting for the other. A party is one body for this purpose: its leader carries the decision

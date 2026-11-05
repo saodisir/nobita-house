@@ -9,6 +9,14 @@ describe('time-of-day presets', () => {
     expect(timeOfDayById(DEFAULT_TIME_OF_DAY).id).toBe(DEFAULT_TIME_OF_DAY);
   });
 
+  it('opens in daylight with the sun up and the lamps off', () => {
+    const opening = timeOfDayById(DEFAULT_TIME_OF_DAY);
+    expect(opening.id).toBe('morning');
+    expect(opening.sun[1]).toBeGreaterThan(0);
+    expect(opening.lampLevel).toBe(0);
+    expect(opening.stars).toBe(false);
+  });
+
   it('puts the sun above the horizon by day and below it at night', () => {
     for (const preset of timesOfDay) {
       const [, y] = preset.sun;

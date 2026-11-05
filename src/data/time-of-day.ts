@@ -127,7 +127,8 @@ export const timesOfDay: readonly TimeOfDayPreset[] = [
   },
 ];
 
-export const DEFAULT_TIME_OF_DAY: TimeOfDayId = 'night';
+/** Open on the daytime the hero sky was tuned against; the night is one click away. */
+export const DEFAULT_TIME_OF_DAY: TimeOfDayId = 'morning';
 
 export const timeOfDayById = (id: TimeOfDayId): TimeOfDayPreset =>
   timesOfDay.find((preset) => preset.id === id) ?? MORNING;

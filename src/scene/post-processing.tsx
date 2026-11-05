@@ -3,7 +3,6 @@ import {
   BrightnessContrast,
   EffectComposer,
   HueSaturation,
-  N8AO,
   Noise,
   Vignette,
 } from '@react-three/postprocessing';
@@ -18,8 +17,8 @@ import { BlendFunction } from 'postprocessing';
  * adding them — carefully, in small amounts — is what makes the frame read as a photo rather than
  * a diagram.
  *
- * The order matters: occlusion first (it is geometry-aware), then bloom (it needs the ungraded
- * highlights), then the colour grade, then the frame — vignette and grain sit on top of everything.
+ * The order matters: bloom first (it needs the ungraded highlights), then the colour grade, then
+ * the frame — vignette and grain sit on top of everything.
  *
  * Every value here is deliberately conservative. The bloom threshold sits above 1.0 so only real
  * light sources — the sunset disc, lit windows at night, the lamp heads — glow; a lit wall is
