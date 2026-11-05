@@ -1,5 +1,6 @@
 import type { CharacterDef } from '../data/characters';
 import { HOUSE_PATH_LENGTH, housePath, sampleHousePath } from '../data/house-path';
+import { type NavRoute, sampleRoute } from '../data/nav-graph';
 import { layout } from '../data/scene';
 import { inPlaza, RUN_SPEED, sampleWalk, WALK_SPEED, type WalkSample } from '../data/walk-routes';
 import { nearestYardU, sampleYard, YARD_LOOP_LENGTH } from '../data/yard-route';
@@ -36,7 +37,7 @@ export type WanderLeg = 'yard' | 'in' | 'turn' | 'out';
 const YARD_SPEED = 0.8;
 /** Indoors, slower: a hall is five metres long and the rooms are full of furniture. */
 const INDOOR_SPEED = 0.55;
-/** Seconds spent standing in the 居間 before turning round and coming back out. */
+/** Seconds spent standing in the 居間 before turning back. */
 const TURN_SECONDS = 7;
 /** Seconds for a yard walker to reach its pace, or to come to rest. */
 const YARD_EASE = 0.55;
@@ -71,9 +72,9 @@ const DOOR_PASS = 2;
 const ENTRY_BLEND = 2;
 
 /** Distance between two points on a closed lap, metres: the short way round. */
-function lapGap(a: number, b: number): number {
-  const direct = Math.abs(a - b) % YARD_LOOP_LENGTH;
-  return Math.min(direct, YARD_LOOP_LENGTH - direct);
+function lapGap(a: number, b: number, length: number): number {
+  const direct = Math.abs(a - b) % length;
+  return Math.min(direct, length - direct);
 }
 
 export interface WanderState {
@@ -128,6 +129,13 @@ export interface WanderState {
   partyLeader: boolean;
   /** Multiplier on this child's own pace, drawn once per afternoon by `wander-plan.ts`. */
   pace: number;
+  /**
+   * This afternoon's walk round the garden, drawn from `nav-graph.ts` when the stroll switch
+   * goes on. Null means the measured yard lap in `yard-route.ts`, which a child driven on its
+   * own — the studio, the unit tests — still uses. A party shares one object, so the same
+   * distance really is the same place for everyone in it.
+   */
+  route: NavRoute | null;
   /** The point on the yard lap that lines up with the front door, metres round. */
   doorU: number;
   /** The point on the lap this child turned in from, where the walk into the house eases from. */
@@ -173,6 +181,7 @@ export function createWander(index: number, def: CharacterDef): WanderState {
     party: null,
     partyLeader: false,
     pace: 1,
+    route: null,
     // The lap point level with the front door: the only place the walk into the house starts.
     doorU: nearestYardU(housePath[0]?.x ?? 0, housePath[0]?.z ?? 0),
     entry: { x: def.position[0], z: def.position[2] },
@@ -189,6 +198,21 @@ export function createWander(index: number, def: CharacterDef): WanderState {
 
 /** Reused for the one-off sample taken when a child turns in, so the frame allocates nothing. */
 const scratch: WalkSample = { x: 0, y: 0, z: 0, heading: 0 };
+
+/** Length of the lap this child is on: its afternoon's walk, or the measured yard loop. */
+export function routeLength(state: WanderState): number {
+  return state.route?.length ?? YARD_LOOP_LENGTH;
+}
+
+/** Sample the child's own walk, falling back to the measured lap outside a stroll session. */
+function sampleOnRoute(state: WanderState, u: number, lateral: number, out: WalkSample): WalkSample {
+  if (state.route) {
+    sampleRoute(state.route, u, lateral, out);
+    return out;
+  }
+  sampleYard(u, lateral, out);
+  return out;
+}
 
 /**
  * The three legs out of the yard, metres: across the pavement to the mouth of the gate,
@@ -243,7 +267,8 @@ export function advanceWander(
       // Letting them out. The spot is in front of the wall and the front door is behind it, so
       // the door is not a way in until the child has actually walked out of the gate.
       state.doorLock = 'exit';
-      const legs = gateLegs(state, sampleYard(state.u, state.lateral, scratch));
+      const lap = sampleOnRoute(state, state.u, state.lateral, scratch);
+      const legs = gateLegs(state, lap);
       state.gateLength = legs.l0 + legs.l1 + legs.l2;
     }
     // Walked at the child's own pace, so the two seconds it takes follow the distance.
@@ -314,10 +339,10 @@ export function advanceWander(
   // Standing still on the lap while walking out of the gate: the child is crossing the
   // pavement, not the garden, and letting `u` run on would leave it a couple of metres
   // behind the point it steps onto and turn the last leg into a sprint to catch up.
-  if (state.exit >= 1) state.u = (state.u + state.speed * dt) % YARD_LOOP_LENGTH;
+  if (state.exit >= 1) state.u = (state.u + state.speed * dt) % routeLength(state);
 
   if (!state.indoor) return;
-  const gap = lapGap(state.u, state.doorU);
+  const gap = lapGap(state.u, state.doorU, routeLength(state));
   // Out of the gate a moment ago, or out of the house: walk clear of the door before it counts
   // as a way in again, or the child would step out of it and straight back into it for ever.
   if (state.doorLock === 'exit') {
@@ -336,7 +361,7 @@ export function advanceWander(
   if (!state.paused && !playing && state.party === null && gap < DOOR_PASS) {
     // Where on the lap the child was when it turned in: the walk into the house eases off this
     // point so the join is a step in the right direction rather than a jump onto the path.
-    const at = sampleYard(state.u, state.lateral, scratch);
+    const at = sampleOnRoute(state, state.u, state.lateral, scratch);
     state.entry.x = at.x;
     state.entry.z = at.z;
     state.leg = 'in';
@@ -388,7 +413,7 @@ export function sampleWander(state: WanderState, index: number, out: WalkSample)
       out.heading = state.home.heading;
       return out;
     }
-    const walk = sampleYard(state.u, state.lateral, out);
+    const walk = sampleOnRoute(state, state.u, state.lateral, out);
     if (state.exit < 1) {
       // Out through the gate, by distance along the three legs, so the child covers ground at
       // one pace the whole way instead of hurrying whichever leg is longest.

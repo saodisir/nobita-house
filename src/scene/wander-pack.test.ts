@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { characters } from '../data/characters';
+import { NAV_OBSTACLES } from '../data/nav-graph';
 import { loopPosition, RUN_SPEED, WALK_LOOP_LENGTH, type WalkSample } from '../data/walk-routes';
 import { GAME_CLIPS } from './walk-clips';
 import { createWander, isPlaying, sampleWander, type WanderState } from './wander';
@@ -262,5 +263,65 @@ describe('wander pack', () => {
     expect(minSideDistance).toBeGreaterThan(BODY);
     // The same game reaches every member of the party, so they jump or clap together.
     expect(gameFrames).toBeGreaterThan(0);
+  });
+
+  it('draws a walk of its own for the garden, shared by a party, on every switch', () => {
+    const states = mount();
+    advancePack(0, true);
+    const yard = states.filter((s) => s.kind === 'yard');
+    const street = states.filter((s) => s.kind === 'street');
+    expect(yard.length).toBeGreaterThan(0);
+    expect(yard.every((s) => s.route !== null)).toBe(true);
+    // The street keeps its measured lap and the braking that lands a child on its own spot.
+    expect(street.every((s) => s.route === null)).toBe(true);
+    const party = yard.filter((s) => s.party !== null);
+    expect(party.length).toBeGreaterThanOrEqual(2);
+    expect(party.every((s) => s.route === party[0]?.route)).toBe(true);
+    // Every drawn walk starts at the gate, which is where the three-leg walk out of the yard
+    // ends; starting anywhere else would send a child across the house to reach its lap.
+    expect(yard.every((s) => s.u === 0)).toBe(true);
+    expect(yard.every((s) => s.doorU < 0.5)).toBe(true);
+  });
+
+  it("puts the afternoon's walks away when the children are called in", () => {
+    const states = mount();
+    advancePack(0, true);
+    expect(states.some((s) => s.route !== null)).toBe(true);
+    advancePack(DT, false);
+    expect(states.every((s) => s.route === null)).toBe(true);
+  });
+
+  it('replays the same walks from a seed and draws new ones from a new seed', () => {
+    const states = mount();
+    const walks = () => states.map((s) => s.route?.ids.join('>') ?? null);
+    advancePack(0, true);
+    const first = walks();
+    advancePack(DT, false);
+    setNextPlanSeed(SEED);
+    advancePack(DT * 2, true);
+    expect(walks()).toEqual(first);
+    advancePack(DT * 3, false);
+    setNextPlanSeed(SEED + 1);
+    advancePack(DT * 4, true);
+    expect(walks()).not.toEqual(first);
+  });
+
+  it('keeps a garden child on its drawn walk, clear of the house', () => {
+    const states = mount();
+    advancePack(0, true);
+    const state = states.find((s) => s.kind === 'yard');
+    const route = state?.route;
+    if (!state || !route) throw new Error('no garden route');
+    state.exit = 1;
+    state.leg = 'yard';
+    const out = { x: 0, y: 0, z: 0, heading: 0 };
+    for (let d = 0; d < route.length; d += 0.25) {
+      state.u = d;
+      sampleWander(state, state.index, out);
+      const hit = NAV_OBSTACLES.some(
+        (r) => out.x > r.x0 - 0.19 && out.x < r.x1 + 0.19 && out.z > r.z0 - 0.19 && out.z < r.z1 + 0.19,
+      );
+      expect(hit, `at ${d.toFixed(2)} m`).toBe(false);
+    }
   });
 });

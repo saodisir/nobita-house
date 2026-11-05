@@ -1,6 +1,8 @@
+import { housePath } from '../data/house-path';
+import { nearestOnRoute, randomLoop } from '../data/nav-graph';
 import { loopPosition, WALK_LOOP_LENGTH } from '../data/walk-routes';
 import { advanceWander, isPlaying, type WanderState } from './wander';
-import { freshSeed, makePlan, type PlanKind, type WanderPlan } from './wander-plan';
+import { freshSeed, makePlan, type PlanKind, seeded, type WanderPlan } from './wander-plan';
 
 /**
  * The six children, advanced together.
@@ -87,6 +89,7 @@ export function clearPack(): void {
   for (const member of pack.values()) {
     member.state.party = null;
     member.state.partyLeader = false;
+    member.state.route = null;
   }
   pack.clear();
   plan = null;
@@ -116,6 +119,7 @@ export function replan(seed: number, elapsed = 0): WanderPlan {
     state.party = null;
     state.partyLeader = false;
     state.game = null;
+    state.route = null;
     if (child) {
       state.walkFor = child.walkFor;
       state.restFor = child.restFor;
@@ -137,6 +141,31 @@ export function replan(seed: number, elapsed = 0): WanderPlan {
     }
   }
   clearGames();
+
+  // A walk of its own for each garden child, drawn from the same seed as the itinerary. A
+  // party shares one route object: three lanes off one distance only reads as shoulder to
+  // shoulder when that distance means the same place for all of them. Street walkers keep
+  // their measured lap and its exact home landing, which a new route would put at risk.
+  const routeRng = seeded((seed ^ 0x9e3779b9) >>> 0);
+  const door = housePath[0] ?? { x: 0, z: 0 };
+  for (const party of plan.parties) {
+    const route = randomLoop(routeRng);
+    for (const index of party.members) {
+      const member = members.find((m) => m.index === index);
+      if (!member) continue;
+      member.state.route = route;
+      member.state.u = 0;
+      member.state.doorU = nearestOnRoute(route, door.x, door.z);
+    }
+  }
+  for (const member of members) {
+    if (member.state.kind !== 'yard' || member.state.route) continue;
+    const route = randomLoop(routeRng);
+    member.state.route = route;
+    member.state.u = 0;
+    member.state.doorU = nearestOnRoute(route, door.x, door.z);
+  }
+
   // A short lead-in: the garden children have to walk out through the gate before they can
   // be out playing, and a game started on the first frame would have nobody in it.
   nextGameAt = elapsed + 4;
@@ -218,10 +247,12 @@ export function advancePack(elapsed: number, walking: boolean, held: string | nu
     nextSeed = null;
     replan(seed, elapsed);
   } else if (!walking && lastWalking) {
-    // Called in: the party breaks up and everyone goes back to being on their own.
+    // Called in: the party breaks up, this afternoon's walks are put away, and everyone goes
+    // back to being on their own on the measured laps.
     for (const member of pack.values()) {
       member.state.party = null;
       member.state.partyLeader = false;
+      member.state.route = null;
     }
     plan = null;
   }

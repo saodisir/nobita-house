@@ -118,6 +118,7 @@ export function useWalker(ref: RefObject<Group | null>, index: number, def: Char
             partyLeader: s.partyLeader,
             lane: Number(s.lateral.toFixed(2)),
             pace: Number(s.pace.toFixed(2)),
+            route: s.route?.ids.join('>') ?? null,
             game: s.game,
           };
         },
