@@ -186,6 +186,16 @@ function makeEdges(): NavEdge[] {
 
 export const NAV_EDGES: readonly NavEdge[] = makeEdges();
 
+const OUTER_PAIRS: ReadonlySet<string> = new Set(['gate>se', 'se>ne', 'ne>nw', 'nw>sw', 'sw>gate']);
+
+/** One measured lap of the outer band, off the same edges the children walk. */
+export const OUTER_LAP_LENGTH = NAV_EDGES.filter((e) => OUTER_PAIRS.has(`${e.from}>${e.to}`)).reduce(
+  (sum, e) => sum + e.length,
+  0,
+);
+
+const edgeKey = (from: string, to: string): string => (from < to ? `${from}|${to}` : `${to}|${from}`);
+
 /** Edges leaving each node, in a stable order so a seeded walk replays exactly. */
 const ADJACENCY: ReadonlyMap<string, readonly NavEdge[]> = (() => {
   const map = new Map<string, NavEdge[]>();
@@ -219,14 +229,20 @@ function weightedPick<T>(rng: Rng, items: readonly T[], weights: readonly number
 }
 
 /**
- * The cheapest way back to the gate, with a penalty for retracing a node the walk has already
- * used. Only twelve edges, so an array scan is faster to read than a heap.
+ * The cheapest way back to the gate, with a penalty for retracing a node or an edge the walk
+ * has already used. Only twelve edges, so an array scan is faster to read than a heap.
  */
-function shortestPath(from: string, to: string, seen: ReadonlySet<string>): string[] {
+function shortestPath(
+  from: string,
+  to: string,
+  seen: ReadonlySet<string>,
+  used: ReadonlySet<string>,
+): string[] {
   const distance = new Map<string, number>([[from, 0]]);
   const previous = new Map<string, string>();
   const open = new Set<string>([from]);
-  const cost = (edge: NavEdge) => edge.length + (seen.has(edge.to) ? 6 : 0);
+  const cost = (edge: NavEdge) =>
+    edge.length + (seen.has(edge.to) ? 6 : 0) + (used.has(edgeKey(edge.from, edge.to)) ? 12 : 0);
   while (open.size > 0) {
     let at: string | null = null;
     let best = Number.POSITIVE_INFINITY;
@@ -265,13 +281,16 @@ function shortestPath(from: string, to: string, seen: ReadonlySet<string>): stri
  * Draw this afternoon's walk.
  *
  * A few turns are chosen by a weighted random walk: short edges are more likely, immediately
- * doubling back is forbidden, and a node already visited is discouraged. Once the wander stops,
- * Dijkstra finds the way home. The result always begins and ends at the gate, which is the one
- * point on the garden that joins the children's spots to the ground behind the wall.
+ * doubling back is forbidden, and a node or an edge already used is discouraged. Once the
+ * wander stops, Dijkstra prices the way home with the same dislike of used edges, so the walk
+ * spreads round the garden instead of pacing one stretch back and forth. The result always
+ * begins and ends at the gate, which is the one point on the garden that joins the children's
+ * spots to the ground behind the wall.
  */
 export function randomLoop(rng: Rng, temperature = 7): NavRoute {
   const ids = ['gate'];
   const seen = new Set<string>(['gate']);
+  const used = new Set<string>();
   const steps = 3 + Math.floor(rng() * 7);
   /**
    * This afternoon's own taste in roads. A fresh multiplier per edge means a long way round
@@ -283,7 +302,8 @@ export function randomLoop(rng: Rng, temperature = 7): NavRoute {
   const weight = (edge: NavEdge) =>
     (bias.get(`${edge.from}>${edge.to}`) ?? 1) *
     (1 / (1 + edge.length / temperature)) *
-    (seen.has(edge.to) ? 0.18 : 1);
+    (seen.has(edge.to) ? 0.18 : 1) *
+    (used.has(edgeKey(edge.from, edge.to)) ? 0.04 : 1);
   let at = 'gate';
   let previous: string | null = null;
 
@@ -295,12 +315,13 @@ export function randomLoop(rng: Rng, temperature = 7): NavRoute {
     const edge = weightedPick(rng, choices, choices.map(weight));
     ids.push(edge.to);
     seen.add(edge.to);
+    used.add(edgeKey(edge.from, edge.to));
     previous = at;
     at = edge.to;
     if (at === 'gate') break;
   }
   if (at !== 'gate') {
-    const home = shortestPath(at, 'gate', seen);
+    const home = shortestPath(at, 'gate', seen, used);
     ids.push(...home.slice(1));
   }
   return buildRoute(ids);

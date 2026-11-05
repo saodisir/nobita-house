@@ -6,6 +6,7 @@ import {
   NAV_NODES,
   NAV_OBSTACLES,
   nearestOnRoute,
+  OUTER_LAP_LENGTH,
   type RoutePoint,
   randomLoop,
   sampleRoute,
@@ -134,5 +135,47 @@ describe('the garden walk graph', () => {
     for (const point of route.points) {
       expect(Math.hypot(point.nx, point.nz)).toBeCloseTo(1, 5);
     }
+  });
+
+  it('measures the outer lap off the same edges the children walk', () => {
+    const outer = NAV_EDGES.filter((e) =>
+      ['gate>se', 'se>ne', 'ne>nw', 'nw>sw', 'sw>gate'].includes(`${e.from}>${e.to}`),
+    );
+    expect(outer).toHaveLength(5);
+    expect(OUTER_LAP_LENGTH).toBeCloseTo(
+      outer.reduce((sum, e) => sum + e.length, 0),
+      6,
+    );
+    expect(OUTER_LAP_LENGTH).toBeGreaterThan(40);
+  });
+
+  it("keeps an afternoon's walk within a couple of laps and keeps the walks varied", () => {
+    const shapes = new Set<string>();
+    for (let seed = 0; seed < 80; seed++) {
+      const route = randomLoop(seeded(seed));
+      shapes.add(route.ids.join('>'));
+      expect(route.length / OUTER_LAP_LENGTH).toBeLessThan(2);
+      expect(route.length / OUTER_LAP_LENGTH).toBeGreaterThan(0.5);
+    }
+    // A penalty on used edges must not collapse the afternoon into one fixed lap.
+    expect(shapes.size).toBeGreaterThan(30);
+  });
+
+  it('spreads the walk instead of pacing one stretch back and forth', () => {
+    let retraced = 0;
+    for (let seed = 0; seed < 80; seed++) {
+      const route = randomLoop(seeded(seed));
+      const used = new Set<string>();
+      let repeated = false;
+      for (let i = 1; i < route.ids.length; i++) {
+        const key = [route.ids[i - 1], route.ids[i]].sort().join('|');
+        if (used.has(key)) repeated = true;
+        used.add(key);
+      }
+      if (repeated) retraced++;
+    }
+    // Without the penalty on used edges this is 47 of 80; the remaining ones are the walks
+    // that have to come back out of the inner line, which has only four ways in.
+    expect(retraced).toBeLessThan(40);
   });
 });
