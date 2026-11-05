@@ -19,6 +19,13 @@ node_modules/.vite/
 .env.*
 !.env.example
 
+# credentials / private keys — never commit these
+*.pem
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+
 # raw Rodin exports — large, unoptimized, not shipped.
 # Optimized output lives in public/models/ and IS committed.
 assets/raw/**
