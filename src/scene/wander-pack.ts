@@ -1,6 +1,6 @@
 import { loopPosition, WALK_LOOP_LENGTH } from '../data/walk-routes';
-import { GAME_CLIPS } from './walk-clips';
-import { advanceWander, isPlaying, type WanderKind, type WanderState } from './wander';
+import { advanceWander, isPlaying, type WanderState } from './wander';
+import { freshSeed, makePlan, type PlanKind, type WanderPlan } from './wander-plan';
 
 /**
  * The six children, advanced together.
@@ -11,8 +11,10 @@ import { advanceWander, isPlaying, type WanderKind, type WanderState } from './w
  * Following distance is a question about all six at once, so the advance moved here — one pass
  * per frame over the whole pack, in index order, with the gaps measured before anyone moves.
  *
- * The yard walkers ride along on the same pass and ignore the gaps: their laps are their own,
- * with three lanes between them, so nothing here applies.
+ * The same pass owns the afternoon's plan. Turning the stroll switch on draws a fresh one from
+ * a seeded PRNG: each child's departures, pauses, pace and lane, which two or three of them
+ * fall in together, and which game the group plays. The routes underneath are untouched, so a
+ * replan cannot put a foot through a wall or move a child off the spot it will return to.
  */
 
 /**
@@ -42,44 +44,106 @@ export function joinPack(id: string, index: number, state: WanderState): () => v
   };
 }
 
-/** Removed on unmount and re-added by the next mount: only the tests call this. */
-export function clearPack() {
-  pack.clear();
-  clearGames();
-}
-
-const mod = (a: number, m: number) => ((a % m) + m) % m;
-
-/**
- * How a game runs: two children in the same place for a moment is a game, eight seconds of it,
- * and then a good while before the next one. The gap is jittered by a counter rather than a
- * random number so the same scene plays out the same way on every load, and so the test can
- * assert on it.
- */
-const GAME_SECONDS = 8;
-const GAME_EVERY = 19;
-/** How many children have to be out playing together before it counts as a game. */
-const GAME_QUORUM = 2;
+/** The plan currently in play, or null before the switch has ever been turned on. */
+let plan: WanderPlan | null = null;
+/** A seed a test asks the next replan to use. Production leaves this null. */
+let nextSeed: number | null = null;
+/** The switch's state on the previous pass, so a replan happens exactly on the off-to-on edge. */
+let lastWalking = false;
+/** Frame time of the last whole-pack pass; one pass per frame, whatever the render order. */
+let lastElapsed = Number.NaN;
 
 interface Game {
-  kind: WanderKind;
   clip: string;
   until: number;
 }
 
 let game: Game | null = null;
-let nextGameAt = GAME_EVERY;
-/** Which group's turn it is when both have a quorum: they take it in turns. */
-let nextKind: WanderKind = 'yard';
-let rounds = 0;
+let nextGameAt = 0;
+let round = 0;
 
-/** Forget the running game and everything scheduled: only the tests and unmount read this. */
-export function clearGames() {
-  game = null;
-  nextGameAt = GAME_EVERY;
-  nextKind = 'yard';
-  rounds = 0;
+/** Fix the seed for the next replan, or pass null to go back to a fresh one. Tests only. */
+export function setNextPlanSeed(seed: number | null): void {
+  nextSeed = seed;
 }
+
+/** The seed behind the current afternoon, for a dev probe or a bug report. */
+export function planSeed(): number | null {
+  return plan?.seed ?? null;
+}
+
+/**
+ * Forget the running game and the round counter. `clearGames` is kept as a name because the
+ * pack's own unmount path and the tests use it to put the scene back at the beginning.
+ */
+export function clearGames(): void {
+  game = null;
+  nextGameAt = 0;
+  round = 0;
+}
+
+/** Removed on unmount and re-added by the next mount: only the tests call this. */
+export function clearPack(): void {
+  for (const member of pack.values()) {
+    member.state.party = null;
+    member.state.partyLeader = false;
+  }
+  pack.clear();
+  plan = null;
+  nextSeed = null;
+  lastWalking = false;
+  lastElapsed = Number.NaN;
+  clearGames();
+}
+
+/**
+ * Draw a whole new afternoon and write it onto the states the children already own.
+ *
+ * Rebuilding `WanderState` is deliberately avoided: `useWalker` keeps one in a ref for the life
+ * of the component, and swapping it would re-seed the group's position and drop the door and
+ * game state mid-frame. Mutating the itinerary fields instead leaves every child standing
+ * exactly where it was when the switch went on.
+ */
+export function replan(seed: number, elapsed = 0): WanderPlan {
+  const members = [...pack.values()];
+  plan = makePlan(
+    seed,
+    members.map((m) => ({ index: m.index, kind: m.state.kind, indoor: m.state.indoor })),
+  );
+  for (const member of members) {
+    const child = plan.child.get(member.index);
+    const state = member.state;
+    state.party = null;
+    state.partyLeader = false;
+    state.game = null;
+    if (child) {
+      state.walkFor = child.walkFor;
+      state.restFor = child.restFor;
+      state.pace = child.pace;
+      state.lateral = child.lateral;
+      // Stagger departures rather than starting places. At the moment the switch goes on
+      // everyone is on the spot `characters.ts` composed, and shifting a starting distance
+      // would be a visible jump; waiting a moment before setting off is not.
+      state.paused = child.departure > 0;
+      state.timer = child.departure > 0 ? child.departure : child.walkFor;
+    }
+    for (const party of plan.parties) {
+      const at = party.members.indexOf(member.index);
+      if (at < 0) continue;
+      state.party = party.id;
+      state.partyLeader = member.index === party.leader;
+      const lane = party.lanes[at];
+      if (lane !== undefined) state.lateral = lane;
+    }
+  }
+  clearGames();
+  // A short lead-in: the garden children have to walk out through the gate before they can
+  // be out playing, and a game started on the first frame would have nobody in it.
+  nextGameAt = elapsed + 4;
+  return plan;
+}
+
+const mod = (a: number, m: number) => ((a % m) + m) % m;
 
 /**
  * Empty road in front of `me`, metres, past the gap it means to keep.
@@ -102,7 +166,36 @@ function clearAhead(me: Member, walkers: readonly Member[]): number {
   return clear;
 }
 
-let lastElapsed = Number.NaN;
+/**
+ * Put each party back in formation after everybody has taken their own step.
+ *
+ * The leader is the only one whose yard distance really advances; the followers copy it and
+ * keep the lane the plan gave them. Because `sampleYard(u, lateral)` offsets perpendicular to
+ * the lap, the same `u` and different lanes is two or three children side by side. The gate
+ * walk, the pauses and the game are copied too, so the group leaves, stops and plays as one.
+ */
+function syncParties(all: readonly Member[]): void {
+  if (!plan || plan.parties.length === 0) return;
+  const leaders = new Map<number, Member>();
+  for (const member of all) {
+    if (member.state.party !== null && member.state.partyLeader && !leaders.has(member.state.party)) {
+      leaders.set(member.state.party, member);
+    }
+  }
+  for (const member of all) {
+    const id = member.state.party;
+    if (id === null || member.state.partyLeader) continue;
+    const leader = leaders.get(id)?.state;
+    const state = member.state;
+    if (!leader || state.kind !== 'yard' || leader.kind !== 'yard') continue;
+    state.u = leader.u;
+    state.exit = leader.exit;
+    state.speed = leader.speed;
+    state.paused = leader.paused;
+    state.timer = leader.timer;
+    state.game = leader.game;
+  }
+}
 
 /**
  * Advance the whole pack by this frame. Every mounted child calls it from its own `useFrame`;
@@ -120,6 +213,20 @@ export function advancePack(elapsed: number, walking: boolean, held: string | nu
   const dt = Number.isNaN(lastElapsed) ? 0 : Math.min(Math.max(elapsed - lastElapsed, 0), 0.1);
   lastElapsed = elapsed;
 
+  if (walking && !lastWalking) {
+    const seed = nextSeed ?? freshSeed();
+    nextSeed = null;
+    replan(seed, elapsed);
+  } else if (!walking && lastWalking) {
+    // Called in: the party breaks up and everyone goes back to being on their own.
+    for (const member of pack.values()) {
+      member.state.party = null;
+      member.state.partyLeader = false;
+    }
+    plan = null;
+  }
+  lastWalking = walking;
+
   const all = [...pack.values()].filter((member) => member.id !== held);
   if (all.length === 0) return;
 
@@ -133,53 +240,84 @@ export function advancePack(elapsed: number, walking: boolean, held: string | nu
     const clearOf = clear.get(member) ?? Number.POSITIVE_INFINITY;
     advanceWander(member.state, dt, walking, clearOf);
   }
+  syncParties(all);
 
   // Games run on the switch too: nobody plays on once the diorama is put away.
   if (!walking) {
-    if (game) {
-      game = null;
-      for (const member of all) member.state.game = null;
-    }
-    nextGameAt = elapsed + GAME_EVERY;
+    for (const member of all) member.state.game = null;
+    game = null;
+    nextGameAt = elapsed + 4;
     return;
   }
   tickGame(elapsed, all);
 }
 
+/** The other loop, tried when the round's own kind has nobody out playing together. */
+const other = (kind: PlanKind): PlanKind => (kind === 'yard' ? 'street' : 'yard');
+
 /**
  * Start, hold and end the group's game.
  *
- * The pause each child keeps for itself is a private thing — a child stopping to look at
+ * A pause each child keeps for itself is a private thing — a child stopping to look at
  * something. What this adds is the other kind: two or three of them in the same place at the
- * same time, all stopping to do the same thing. Without it, three children in one garden are
- * three children walking round a house, which is what the old single clock already looked like.
+ * same time, all stopping to do the same thing. A party is taken whole or left out whole, so
+ * children walking side by side are never split by a game; outsiders then fill the round's
+ * quorum in the shuffled order the plan drew.
  */
 function tickGame(elapsed: number, all: readonly Member[]) {
+  const current = plan;
+  if (!current || current.games.length === 0) return;
+  const spec = current.games[round % current.games.length];
+  if (!spec) return;
+
   if (game) {
     if (elapsed < game.until) return;
-    // The clock runs out at the same moment for everyone: they pick their errands back up.
     for (const member of all) member.state.game = null;
     game = null;
-    nextGameAt = elapsed + GAME_EVERY + ((rounds * 7) % 11);
+    nextGameAt = elapsed + spec.gap;
+    round++;
     return;
   }
   if (elapsed < nextGameAt) return;
 
-  const quorum = (kind: WanderKind) =>
-    all.filter((m) => m.state.kind === kind && isPlaying(m.state)).length >= GAME_QUORUM;
-  const kinds: WanderKind[] = [nextKind, nextKind === 'yard' ? 'street' : 'yard'];
-  const kind = kinds.find(quorum);
-  // Nobody out playing: wait a little rather than starting a game at the first chance after a
-  // walker happens to reach the lot.
-  if (!kind) {
-    nextGameAt = elapsed + 3;
+  for (const kind of [spec.kind, other(spec.kind)]) {
+    const eligible = all.filter((m) => m.state.kind === kind && isPlaying(m.state));
+    if (eligible.length < 2) continue;
+
+    const chosen: Member[] = [];
+    const seen = new Set<string>();
+    const parties = new Map<number, Member[]>();
+    for (const member of eligible) {
+      const id = member.state.party;
+      if (id === null) continue;
+      const group = parties.get(id) ?? [];
+      group.push(member);
+      parties.set(id, group);
+    }
+    const groups = [...parties.values()].filter((g) => g.length >= 2).sort((a, b) => b.length - a.length);
+    for (const group of groups) {
+      for (const member of group) {
+        if (seen.has(member.id)) continue;
+        chosen.push(member);
+        seen.add(member.id);
+      }
+    }
+    const want = Math.max(spec.quorum, groups[0]?.length ?? 0);
+    for (const index of spec.order) {
+      if (chosen.length >= want) break;
+      const member = eligible.find((m) => m.index === index);
+      if (member && !seen.has(member.id)) {
+        chosen.push(member);
+        seen.add(member.id);
+      }
+    }
+    if (chosen.length < 2) continue;
+
+    for (const member of chosen) member.state.game = spec.clip;
+    game = { clip: spec.clip, until: elapsed + spec.seconds };
     return;
   }
-  const clip = GAME_CLIPS[rounds % GAME_CLIPS.length] ?? GAME_CLIPS[0] ?? 'clap';
-  for (const member of all) {
-    if (member.state.kind === kind && isPlaying(member.state)) member.state.game = clip;
-  }
-  game = { kind, clip, until: elapsed + GAME_SECONDS };
-  rounds++;
-  nextKind = kind === 'yard' ? 'street' : 'yard';
+  // Nobody out playing: wait a little rather than starting a game at the first chance after a
+  // walker happens to reach the lot.
+  nextGameAt = elapsed + 2;
 }

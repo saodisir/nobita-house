@@ -9,7 +9,7 @@ import { useAppStore } from '../state/store';
 import { walkerPose } from './free-walk';
 import { RUN_AT } from './walk-clips';
 import { createWander, isPlaying, sampleWander, type WanderState, wanderSpeed } from './wander';
-import { advancePack, joinPack } from './wander-pack';
+import { advancePack, joinPack, planSeed } from './wander-pack';
 
 /** How fast a walker's yaw closes on the route heading, per second: a visible turn, not a snap. */
 const TURN_RATE = 8;
@@ -48,6 +48,8 @@ export function useWalker(ref: RefObject<Group | null>, index: number, def: Char
   const [coarse, applyCoarse] = useState<WalkerPose>(STILL);
   const seen = useRef<WalkerPose>(STILL);
   const indoorsSeen = useRef(false);
+  /** The door state this child is still asking for, until the store actually agrees. */
+  const doorDesired = useRef<boolean | null>(null);
   const wander = useRef<WanderState | null>(null);
   if (!wander.current) wander.current = createWander(index, def);
   const sample = useRef<WalkSample>({ x: 0, y: 0, z: 0, heading: 0 });
@@ -110,6 +112,13 @@ export function useWalker(ref: RefObject<Group | null>, index: number, def: Char
             doorU: Number(s.doorU.toFixed(2)),
             paused: s.paused,
             speed: Number((s.kind === 'street' ? s.clock.speed : s.speed).toFixed(2)),
+            // This afternoon's plan: the seed to replay a bug, the lane and the party.
+            seed: planSeed(),
+            party: s.party,
+            partyLeader: s.partyLeader,
+            lane: Number(s.lateral.toFixed(2)),
+            pace: Number(s.pace.toFixed(2)),
+            game: s.game,
           };
         },
       },
@@ -164,11 +173,25 @@ export function useWalker(ref: RefObject<Group | null>, index: number, def: Char
 
     // Doors open before the child reaches them and shut once it is back out. Held on the store
     // rather than reached into `doors.tsx`, which knows nothing about who is walking.
+    //
+    // This used to fire only on the edge, which meant a refusal was permanent: `setDoorOpen`
+    // will not move a leaf while somebody stands on its travel, so one busy doorway left the
+    // house open for the rest of the afternoon. Keep asking until the store agrees, then stop —
+    // after that the visitor is free to open and shut the doors by hand again.
     const indoors = state.leg !== 'yard';
     if (indoors !== indoorsSeen.current) {
       indoorsSeen.current = indoors;
+      doorDesired.current = indoors;
+    }
+    const want = doorDesired.current;
+    if (want !== null) {
+      const before = useAppStore.getState().openDoors;
       const { setDoorOpen } = useAppStore.getState();
-      for (const door of housePathDoors) setDoorOpen(door, indoors);
+      for (const door of housePathDoors) {
+        if ((before[door] ?? false) !== want) setDoorOpen(door, want);
+      }
+      const after = useAppStore.getState().openDoors;
+      if (housePathDoors.every((door) => (after[door] ?? false) === want)) doorDesired.current = null;
     }
     const s = sampleWander(state, index, sample.current);
     group.position.set(s.x, s.y, s.z);

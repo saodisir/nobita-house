@@ -118,6 +118,16 @@ export interface WanderState {
    * actually play is `walk-clips.ts`'s business, not the route's.
    */
   game: string | null;
+  /**
+   * The party this child is walking with this afternoon, or null. A party shares one yard
+   * distance and keeps a lane each, so two or three of them go side by side and stop together.
+   * `wander-pack.ts` syncs the followers to the leader after every advance.
+   */
+  party: number | null;
+  /** Whether this child is the one whose distance the rest of the party follows. */
+  partyLeader: boolean;
+  /** Multiplier on this child's own pace, drawn once per afternoon by `wander-plan.ts`. */
+  pace: number;
   /** The point on the yard lap that lines up with the front door, metres round. */
   doorU: number;
   /** The point on the lap this child turned in from, where the walk into the house eases from. */
@@ -157,6 +167,12 @@ export function createWander(index: number, def: CharacterDef): WanderState {
     doorLock: null,
     indoor: def.indoor === true,
     game: null,
+    // The afternoon's plan overwrites these when the stroll switch goes on. The defaults are
+    // the composed ones, so a child driven on its own (the studio, the unit tests) keeps the
+    // pace and the solitude the scene was built with.
+    party: null,
+    partyLeader: false,
+    pace: 1,
     // The lap point level with the front door: the only place the walk into the house starts.
     doorU: nearestYardU(housePath[0]?.x ?? 0, housePath[0]?.z ?? 0),
     entry: { x: def.position[0], z: def.position[2] },
@@ -214,6 +230,8 @@ export function advanceWander(
       state.speed = 0;
       state.paused = false;
       state.game = null;
+      state.party = null;
+      state.partyLeader = false;
       state.timer = state.walkFor;
       state.leg = 'yard';
       state.houseD = 0;
@@ -235,8 +253,8 @@ export function advanceWander(
   // Indoors is the one leg the pause timer does not touch: a child in the living room stands
   // about because it got there, not because a timer said so.
   if (state.leg === 'in') {
-    state.speed = INDOOR_SPEED;
-    state.houseD += INDOOR_SPEED * dt;
+    state.speed = INDOOR_SPEED * state.pace;
+    state.houseD += INDOOR_SPEED * state.pace * dt;
     if (state.houseD >= HOUSE_PATH_LENGTH) {
       state.houseD = HOUSE_PATH_LENGTH;
       state.leg = 'turn';
@@ -252,8 +270,8 @@ export function advanceWander(
     return;
   }
   if (state.leg === 'out') {
-    state.speed = INDOOR_SPEED;
-    state.houseD -= INDOOR_SPEED * dt;
+    state.speed = INDOOR_SPEED * state.pace;
+    state.houseD -= INDOOR_SPEED * state.pace * dt;
     if (state.houseD <= 0) {
       state.houseD = 0;
       state.leg = 'yard';
@@ -281,8 +299,8 @@ export function advanceWander(
     // A pause or a game asks for nought, so the clock brakes into it at its usual `ACCEL`
     // instead of freezing on the spot: a child that stops at a run comes to rest over a metre
     // or so, in the walk clip, rather than swapping a run for a clap in a single frame.
-    state.clock.cruise =
-      state.paused || playing ? 0 : inPlaza(state.index, state.clock.d) ? RUN_SPEED : WALK_SPEED;
+    const groundPace = inPlaza(state.index, state.clock.d) ? RUN_SPEED : WALK_SPEED;
+    state.clock.cruise = state.paused || playing ? 0 : groundPace * state.pace;
     advanceWalkClock(state.clock, dt, walking, clearAhead);
     return;
   }
@@ -290,7 +308,7 @@ export function advanceWander(
   // Coming out of a pause near the front door, this child goes in. Anywhere else on the lap it
   // keeps walking: the walk into the house starts at one point, and walking twenty metres
   // across the garden to reach it is not what a child does with an afternoon.
-  const target = walking && !state.paused && !playing ? YARD_SPEED : 0;
+  const target = walking && !state.paused && !playing ? YARD_SPEED * state.pace : 0;
   // Exponential easing: a child in a garden does not start and stop on a dime like a car.
   state.speed += (target - state.speed) * (1 - Math.exp(-dt / YARD_EASE));
   // Standing still on the lap while walking out of the gate: the child is crossing the
@@ -312,7 +330,10 @@ export function advanceWander(
   }
   // The lap passes the gate once a lap, so waiting for it rather than for a pause that happens
   // to land there is what makes going indoors something you can actually watch happen.
-  if (!state.paused && !playing && gap < DOOR_PASS) {
+  // A child walking side by side with two others is not going to peel off into the house on
+  // its own; the party would have to split. It takes its turn indoors on an afternoon it is
+  // on its own, which the next plan decides.
+  if (!state.paused && !playing && state.party === null && gap < DOOR_PASS) {
     // Where on the lap the child was when it turned in: the walk into the house eases off this
     // point so the join is a step in the right direction rather than a jump onto the path.
     const at = sampleYard(state.u, state.lateral, scratch);
