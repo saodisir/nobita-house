@@ -4,15 +4,6 @@
 
 Vercel, project `lnanhkhoas-projects/nobita-house-3d` (account `lnanhkhoa`).
 
-## URL
-
-https://nobita-house.vercel.app (production alias; also
-`nobita-house-3d-lnanhkhoas-projects.vercel.app`). `nobita-house-3d.vercel.app` is not
-assigned to this project and returns 404.
-
-Preview deployments sit behind Vercel Authentication: open them while logged in to
-Vercel, or `curl` gets a 302 to the SSO page.
-
 ## Deploy command
 
 ```bash

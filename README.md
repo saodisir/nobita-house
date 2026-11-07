@@ -1,63 +1,64 @@
-# Nobita's House — a 3D Doraemon diorama
+# 大雄的家 — 哆啦 A 梦 3D 立体场景
 
-A 3D web diorama of Nobita's house and the Japanese suburb around it, with Doraemon and friends gathered round the front gate. Orbit the block, change the time of day, click a character to meet them, take one of them for a walk by hand, or open the character studio to play every motion they carry.
+[English](./README.en.md) | 简体中文
 
-**Live demo: [nobita-house.vercel.app](https://nobita-house.vercel.app/)**
+用 three.js 做的大雄家与周边街区 3D 立体模型：可以绕着街区转、切换时段、点角色看资料、带角色散步、进屋走动，也能按剧本自动演一段故事。
 
-**Source:** this repository builds on [lnanhkhoa/nobita-house-3d](https://github.com/lnanhkhoa/nobita-house-3d); see [Assets and credits](#assets-and-credits) for what was added here.
+**来源：** 本项目在 [lnanhkhoa/nobita-house-3d](https://github.com/lnanhkhoa/nobita-house-3d) 的基础上继续开发；本仓库新增了什么见[来源与署名](#来源与署名)。
 
-![Nobita's house on a sunny morning, with Doraemon, Nobita, Shizuka, Gian, Suneo and Dekisugi gathered at the gate](docs/screenshots/diorama-morning.jpg)
+![清晨的大雄家，哆啦 A 梦、大雄、静香、胖虎、小夫和出木杉聚在门口](docs/screenshots/diorama-morning.jpg)
 
-## Features
+## 功能
 
-- **Explorable neighbourhood.** Nobita's house stands on a crossroads with seven neighbour lots and, across the road, the vacant lot with its three concrete pipes. Drag to orbit, scroll to zoom, pan around the block.
-- **Four times of day.** Dawn, morning, sunset and night each change the sky, sun, shadows, fog and clouds. It opens in the morning, the daytime the hero sky was tuned against, so the first frame has the sun up and the lamps off. At night the windows and street lamps light up, and there are stars, a moon and fireflies.
-- **Rain.** A toggle beside the times of day closes the sky over any of them: grey clouds, soft shadows, closer haze, rain streaks and splashes. Open ground soaks through and dries off slowly; roads and paths shine and collect rippling puddles that mirror the sky and the street lamps. Everything under a roof, an eave or a tree stays dry — a top-down height capture of the scene decides what is sheltered, so no rain falls indoors. The rain is heard too (synthesized, muffled from inside the house, off with the Sound effects switch). On a rainy night the stars, moon and fireflies stay away.
-- **Six characters.** Doraemon, Nobita, Shizuka, Gian, Suneo and Dekisugi, each rigged and animated. Some sit on the wall, some stand and talk. Click one, or use the roster, and the camera flies over and opens their info card.
-- **Let them roam.** One switch and the six split up: Nobita, Doraemon and Shizuka take the yard loop round the house, Gian, Suneo and Dekisugi the street loop round the block. Each child runs its own lap at its own pace, stops for a look around when it likes, and comes back to the gate when the switch goes off. The two sitters step down off the wall to walk, and step back up when they get home. Nobita also goes indoors now and then: out of the gate, up the path, through the front door — which swings open for him — down the hall into the 居間, where he stands a while and walks back out. The route is one measured path through the ground storey; upstairs waits for a stair clip. Every turn of the switch draws a fresh afternoon from a seeded PRNG: when each child sets off, how long it walks before it stops, its pace, its lane, who it falls in with, which game the group plays and the gaps between games. The seed is exposed on the dev probe, so one afternoon can be replayed exactly. Two or three of the garden children fall in together for the afternoon: they share one distance round the yard and keep a lane each, which puts them shoulder to shoulder, and they leave, stop and play the same clip as one, a party never split by a game. The street is a single lane of pavement with a following distance to keep, so those three still walk in single file rather than abreast; calling them back breaks the party up and clears the plan. The shape of the garden walk changes too: `nav-graph.ts` measures a small graph of clear ground round the house — an outer lap, a second line close in on three sides, and four links between them — and each switch draws somewhere for the afternoon to go, then searches the graph twice with A* — out to that place and back to the gate — with a few seeded turns in between. The three garden children share that one walk rather than drawing one each: two independent walks can run a hand's width apart round the house, which no give-way rule can keep out of each other. A road already used that afternoon is heavily discounted in both the wander and the way home, so a walk tends to spread round the garden instead of pacing one stretch back and forth, while the number of different afternoons stays the same. Every edge is checked against the house's real walls and the shed grown by a body-and-lane width, so a new shape cannot put a foot through a wall, and the lanes are measured away from the house rather than to the left of the walk, so a walk that doubles back does not throw a child across the road. The plan gives each of them a different one of three lanes, drawn without replacement, so the shared walk never puts two bodies on the same strip of ground. A lane is measured off a unit normal at every point, so the full shoulder-to-shoulder width holds even where two corners meet; a child who comes too close to another eases to a stop and waits for the way to clear, and a round of play waits for room around its players before it freezes anybody in place. The street walkers keep their measured lap and the braking that lands each one exactly on its own spot.
-- **Walk.** Two ways in, one drive underneath. *Walk myself* drops you at the gate on your own feet: first person, WASD, the whole house including the stairs. Open a character's card instead and choose *First person* or *Third person*; V swaps the lens mid-stride without moving anybody, and the eye height follows the child's own stature. Both views share one walker and one set of collisions, so first person is also the way past a wall that would block the chase camera. Tables, chairs and the other tall pieces are solid underfoot too: the colliders come from the same `FURNITURE` list that draws them, split by floor so an upstairs desk cannot block the hall beneath it, while rugs, doormats, things standing on a host and anything a foot can step over stay passable. The E shortcut up or down the stair now searches for a landing on clear floor instead of dropping the walker inside a desk. The motions the model carries sit folded behind one button in a narrow bottom-left bar, and are hidden in first person where there is nobody to watch. *Let go* (or Esc) puts the child back on its lap.
-- **Doors and the View menu.** Every leaf in the plan starts shut, and a shut leaf is a wall the walker stops at. Walk up and click one — or aim the visible centre reticle at it in first person, where every click is cast from the middle of the frame — to swing or slide it aside; the same state drives the animation, the sound and the collision. A leaf will not move at all while somebody stands anywhere on its travel — the doorway, or the quarter-disc a hinged leaf sweeps — rather than swinging through them; step back to give it room. The back-yard shed has a real doorway now: the GLB's solid box is hidden at runtime and rebuilt from one set of numbers as four walls, a lintel and two outward-opening leaves, so the door opens and the walker can step inside. The **View** menu in the toolbar holds the aerial and the three lift detents as separate controls, so the camera can look down at a house with its roof still on, and any one floor can be lifted without moving the lens.
-- **Character studio.** Put one character on a lit turntable and play any of their clips (idle, walk, run, wave, dance, laugh and more), with speed, loop and turntable controls.
-- **Also:** auto-rotate, a reset-view button, background music you can toggle, a live FPS / draw-call / triangle panel, and a phone layout with a settings sheet.
+- **可逛的街区。** 大雄家在十字路口，周围七块邻居宅地，马路对面是有三根水泥管的空地。拖动旋转、滚轮缩放、平移取景。
+- **四段时段。** 清晨、白天、黄昏、夜晚各有自己的天空、太阳、阴影、雾和云；夜晚亮灯，出星星、月亮和萤火虫。
+- **下雨。** 时段旁边的开关能给任意时段盖上阴云：雨丝、水花、地面积水和倒影。屋顶、屋檐、树下不湿，室内听见的是闷住的雨声，跟着「音效」开关走。雨夜不出星星、月亮和萤火虫。
+- **六个角色。** 哆啦 A 梦、大雄、静香、胖虎、小夫、出木杉，各有骨骼和动作，有的坐墙、有的站着聊天；点一下或用名册可飞过去看资料卡。
+- **让他们自己溜达。** 一个开关，六人分两路绕院子和街区走，各有各的节奏，会停下来张望，关掉开关就回门口。午后行程由种子随机数决定，同一个种子能完整复现。
+- **散步。** *我自己走* 是第一人称 WASD，整栋房子包括楼梯都能走；从角色卡进去可选第一或第三人称，V 键中途切换不挪人。两种视角共用一套碰撞。
+- **门与「视角」菜单。** 每扇门默认关着，关着就是墙；走过去点一下会开，门扇扫过有人站着时不会硬转过去。菜单里有俯视和三层抬升，抬升时不用动镜头。
+- **角色工作室。** 把一个角色放上转台，逐个播放他带的所有动作（idle、walk、run、wave、dance、laugh 等），可调速度、循环和转台。
+- **按剧本演一段故事。** 点「演一段故事」，六人按写好的剧本走位、说话，台词出现在底部固定对话框里；镜头从门口切到空地再切回来，演完自动归位。
+- **其他：** 自动旋转、重置视角、可开关的背景音乐、实时 FPS / draw call / 三角形面板、手机布局的设置面板。
 
-## Screenshots
+## 截图
 
-| Dawn | Sunset |
+| 清晨 | 黄昏 |
 |---|---|
-| ![Dawn](docs/screenshots/diorama-dawn.jpg) | ![Sunset](docs/screenshots/diorama-sunset.jpg) |
+| ![清晨](docs/screenshots/diorama-dawn.jpg) | ![黄昏](docs/screenshots/diorama-sunset.jpg) |
 
-| Night | The whole block |
+| 夜晚 | 整个街区 |
 |---|---|
-| ![Night, with lit windows, moon and fireflies](docs/screenshots/diorama-night.jpg) | ![Zoomed-out view of the crossroads, neighbour houses and the vacant lot](docs/screenshots/neighbourhood-aerial.jpg) |
+| ![夜晚，亮着灯、有月亮和萤火虫](docs/screenshots/diorama-night.jpg) | ![俯瞰十字路口、邻居宅地和空地](docs/screenshots/neighbourhood-aerial.jpg) |
 
-| Character card | Character studio |
+| 角色卡 | 角色工作室 |
 |---|---|
-| ![Camera close on Doraemon with his info card open](docs/screenshots/character-card.jpg) | ![Doraemon waving on the studio turntable, with the motion picker below](docs/screenshots/character-studio.jpg) |
+| ![镜头贴近哆啦 A 梦，资料卡打开](docs/screenshots/character-card.jpg) | ![哆啦 A 梦在转台上挥手，下方是动作选择器](docs/screenshots/character-studio.jpg) |
 
-## Pages
+## 页面
 
-| Route | What it shows |
+| 路由 | 内容 |
 |---|---|
-| `/` | The diorama: Nobita's house on its lot in the block, with the six characters at the gate; go inside through a window or the place menu, stand in any room, click a door to open it |
-| `/characters/<id>` | The character studio: `doraemon`, `nobita`, `shizuka`, `jaian`, `suneo`, `dekisugi` |
-| `/editor` | The house editor: Nobita's house rebuilt from its plan drawing, both floors under their roofs, whole or cut open at either floor, or seen from inside any room — from its corners, or through its doorway for the wet rooms and closets; click a door to open or shut it |
+| `/` | 立体场景：街区里的大雄家，六人聚在门口；可从窗户或地点菜单进屋，站到任意房间，点门开门 |
+| `/characters/<id>` | 角色工作室：`doraemon`、`nobita`、`shizuka`、`jaian`、`suneo`、`dekisugi` |
+| `/editor` | 房屋编辑器：按平面图重建的大雄家，两层带屋顶，可整栋看、按层剖开，也可以从任意房间内部或门口看；点门开关 |
 
-## Tech stack
+## 技术栈
 
-| Layer | Choice |
+| 层 | 选型 |
 |---|---|
-| UI | React 19, TypeScript |
-| 3D | three.js, @react-three/fiber, @react-three/drei, camera-controls |
-| State / animation | zustand, motion |
-| Build | Vite, bun |
-| Quality | Biome (lint + format), Vitest |
-| Hosting | Vercel |
+| UI | React 19、TypeScript |
+| 3D | three.js、@react-three/fiber、@react-three/drei、camera-controls |
+| 状态 / 动画 | zustand、motion |
+| 构建 | Vite、bun |
+| 质量 | Biome（lint + format）、Vitest |
+| 部署 | Vercel |
 
-The scene targets 60 FPS on desktop. Current numbers and budgets are in [docs/tech-stack.md](docs/tech-stack.md#measured-performance-m4-chrome-headless-over-cdp-real-metal-gpu-2026-09-11).
+桌面端目标 60 FPS。实测数据与预算见 [docs/tech-stack.md](docs/tech-stack.md#measured-performance-m4-chrome-headless-over-cdp-real-metal-gpu-2026-09-11)。
 
-## Getting started
+## 本地运行
 
-Requires [bun](https://bun.sh).
+需要 [bun](https://bun.sh)。
 
 ```sh
 git clone https://github.com/saodisir/nobita-house.git
@@ -66,61 +67,53 @@ bun install
 bun run dev        # http://localhost:5173
 ```
 
-The optimised models in `public/models/` are committed, so the app runs straight after cloning. No environment variables are needed. Reference images and the house stills under `assets/` are deliberately not in the repository; see [Assets and credits](#assets-and-credits).
+优化后的模型已提交在 `public/models/`，clone 完直接能跑，不需要环境变量。`assets/` 下的参考图和房屋静态图不随仓库分发，见[来源与署名](#来源与署名)。
 
-| Script | Does |
+| 命令 | 作用 |
 |---|---|
-| `bun run dev` | Start the dev server |
-| `bun run build` | Type-check and build to `dist/` |
-| `bun run preview` | Serve the production build |
-| `bun run lint` | Biome check |
-| `bun run typecheck` | TypeScript, no emit |
-| `bun run editor:textures` | Copy the surface tiles the house editor maps into `public/textures/editor/` |
-| `bun run test` | Vitest: scene data, routing, lighting, placement, walk loop, music |
+| `bun run dev` | 启动开发服务器 |
+| `bun run build` | 类型检查并构建到 `dist/` |
+| `bun run preview` | 预览生产构建 |
+| `bun run lint` | Biome 检查 |
+| `bun run typecheck` | TypeScript，不产出文件 |
+| `bun run editor:textures` | 把房屋编辑器用的表面贴图复制到 `public/textures/editor/` |
+| `bun run test` | Vitest：场景数据、路由、光照、摆放、行走循环、音乐 |
 
-## Project structure
+## 目录结构
 
 ```
 src/
-  app.tsx          diorama page
-  studio/          character studio page
-  editor/          house editor page
-  scene/           house, streets, neighbours, foliage, characters, lighting, camera
-  data/            scene layout, characters, animation catalog, time-of-day presets
-  state/           zustand stores
-  ui/              panels, roster, info card, controls, music
-public/models/     optimised GLB models
-scripts/           asset pipeline: reference images, Blender builders, GLB optimisation
-docs/              tech stack, asset pipeline, design guidelines, deployment
+  app.tsx          立体场景页
+  studio/          角色工作室页
+  editor/          房屋编辑器页
+  scene/           房子、街道、邻居、植被、角色、光照、镜头
+  data/            场景布局、角色、动作目录、时段预设
+  state/           zustand store
+  ui/              面板、名册、资料卡、控件、音乐
+public/models/     优化后的 GLB 模型
+scripts/           素材流水线：参考图、Blender 构建脚本、GLB 优化
+docs/              技术栈、素材流水线、设计规范、部署
 ```
 
-## How the models were made
+## 模型是怎么做出来的
 
-The characters started as reference images, went through image-to-3D on Hyper3D Rodin, were rigged and animated with Mixamo, and were cleaned up in Blender. The streets, neighbour lots and plants are built procedurally by Blender Python scripts; Nobita's house is built in the browser (below). Everything is then compressed with gltf-transform (dedup, weld, texture resize, meshopt). The full runbook is in [docs/asset-pipeline.md](docs/asset-pipeline.md).
+角色从参考图起步，经 Hyper3D Rodin 图生 3D、Mixamo 绑骨和动作、Blender 清理；街道、邻居宅地和植物由 Blender Python 脚本程序化生成；大雄家在浏览器里按数据搭出来（见下）。最后统一用 gltf-transform 压缩（去重、合并、贴图缩放、meshopt）。完整流程在 [docs/asset-pipeline.md](docs/asset-pipeline.md)。
 
-Nobita's house is not a model file. `src/editor/house/plan.ts` is the house as data, measured
-from its own floor plan in `assets/drawings.jpg` (a local reference still, not shipped): both storeys, fifteen rooms, every wall,
-window, door and piece of furniture, the stair and the roofs of `assets/home.jpg`. The browser
-builds it from that data, and the diorama and `/editor` build the same house:
-`src/data/house-site.ts` sets it on the lot with its front door on the gate's axis, a 2 m stone
-path from the gate to the porch, shrub beds and stepping stones in front, the washing line in
-the west yard and a back yard with the shed behind. Inside, the camera stands where a person would — in a
-corner of the room, or at the doorway of a room too small to stand in — and only turns, so it
-never passes through a wall; every door, and the glass doors onto the garden, opens on a click.
+大雄家不是模型文件。`src/editor/house/plan.ts` 把房子写成数据，依据 `assets/drawings.jpg` 的平面图（本地参考图，不随仓库分发）量出两层、十五个房间、每面墙窗门家具、楼梯和 `assets/home.jpg` 的屋顶。浏览器据此构建，立体场景和 `/editor` 用的是同一份数据：`src/data/house-site.ts` 把它放到宅地上，正门对准门口轴线，2 米石径通到门廊，前面有灌木花坛和踏脚石，西院有晾衣绳，后院有储物棚。室内镜头站在人能站的位置——房间角落，或者太小的房间就站门口——只转向不移动，所以不会穿墙；每扇门和通向院子的玻璃门都能点开。
 
-## Documentation
+## 文档
 
-- [docs/tech-stack.md](docs/tech-stack.md): architecture, conventions, performance
-- [docs/asset-pipeline.md](docs/asset-pipeline.md): reference image to GLB
-- [docs/design-guidelines.md](docs/design-guidelines.md): visual and UI direction
-- [docs/deployment.md](docs/deployment.md): Vercel deploy and rollback
+- [docs/tech-stack.md](docs/tech-stack.md)：架构、约定、性能
+- [docs/asset-pipeline.md](docs/asset-pipeline.md)：从参考图到 GLB
+- [docs/design-guidelines.md](docs/design-guidelines.md)：视觉与 UI 方向
+- [docs/deployment.md](docs/deployment.md)：Vercel 部署与回滚
 
-## Assets and credits
+## 来源与署名
 
-- **Source.** This project continues from [lnanhkhoa/nobita-house-3d](https://github.com/lnanhkhoa/nobita-house-3d) by `lnanhkhoa`. That is where Nobita's house, the neighbourhood, the character studio and the deployment runbook started. The free-roam afternoons, first/third-person walking, doors and the View menu, and the scripted story were added in this repository.
-- **Reference art is not shipped.** `assets/ref/` and the house stills at the top of `assets/` are local working material and are gitignored; `.vercelignore` also excludes `assets/` from builds. Regenerate the generated views with `bun run gen:refs -- --all` ([docs/asset-pipeline.md](docs/asset-pipeline.md)). The optimised GLBs in `public/models/` are committed and are all the app needs.
-- **Characters and music.** Doraemon and the other characters, the models derived from them, and the original background theme remain the property of their respective rights holders. No rights are granted over them.
+- **来源。** 本项目在 [lnanhkhoa/nobita-house-3d](https://github.com/lnanhkhoa/nobita-house-3d)（`lnanhkhoa`）的基础上继续开发。大雄家、周边街区、角色工作室和部署文档始于那个仓库；自由漫游的午后、第一/三人称散步、门与「视角」菜单、剧本故事演绎是本仓库新增的。
+- **参考图不随仓库分发。** `assets/ref/` 与 `assets/` 顶层的房屋静态图属于本地工作素材，已加入 `.gitignore`；`.vercelignore` 也把整个 `assets/` 排除在构建之外。需要生成的视角图可用 `bun run gen:refs -- --all` 重建（见 [docs/asset-pipeline.md](docs/asset-pipeline.md)）。运行项目只需要已提交的 `public/models/` GLB。
+- **角色与音乐。** 哆啦 A 梦及其他角色、由它们派生的模型、以及原版背景音乐，版权归各自权利人所有；本仓库不授予任何权利。
 
-## Disclaimer
+## 免责声明
 
-This is a non-commercial fan project for personal and portfolio use. Doraemon and all related characters are © Fujiko Pro / Shogakukan / TV Asahi. This project is not affiliated with or endorsed by the rights holders.
+这是一个非商业同人项目，仅作个人学习与作品集用途。哆啦 A 梦及相关角色版权归 Fujiko Pro / Shogakukan / TV Asahi 所有。本项目与权利方无关联，也未获其背书。
