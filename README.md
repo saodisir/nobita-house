@@ -4,6 +4,8 @@ A 3D web diorama of Nobita's house and the Japanese suburb around it, with Dorae
 
 **Live demo: [nobita-house.vercel.app](https://nobita-house.vercel.app/)**
 
+**Source:** this repository builds on [lnanhkhoa/nobita-house-3d](https://github.com/lnanhkhoa/nobita-house-3d); see [Assets and credits](#assets-and-credits) for what was added here.
+
 ![Nobita's house on a sunny morning, with Doraemon, Nobita, Shizuka, Gian, Suneo and Dekisugi gathered at the gate](docs/screenshots/diorama-morning.jpg)
 
 ## Features
@@ -115,12 +117,9 @@ never passes through a wall; every door, and the glass doors onto the garden, op
 
 ## Assets and credits
 
-- **Upstream.** This project continues from [lnanhkhoa/nobita-house-3d](https://github.com/lnanhkhoa/nobita-house-3d), which is where the house, the neighbourhood, the character studio and the deployment runbook started. The free-roam afternoons, first/third-person walking, doors and the View menu, and the scripted story were added here. The upstream repository publishes no LICENSE file.
+- **Source.** This project continues from [lnanhkhoa/nobita-house-3d](https://github.com/lnanhkhoa/nobita-house-3d) by `lnanhkhoa`. That is where Nobita's house, the neighbourhood, the character studio and the deployment runbook started. The free-roam afternoons, first/third-person walking, doors and the View menu, and the scripted story were added in this repository.
 - **Reference art is not shipped.** `assets/ref/` and the house stills at the top of `assets/` are local working material and are gitignored; `.vercelignore` also excludes `assets/` from builds. Regenerate the generated views with `bun run gen:refs -- --all` ([docs/asset-pipeline.md](docs/asset-pipeline.md)). The optimised GLBs in `public/models/` are committed and are all the app needs.
-- **Background music is original.** `public/audio/background-music.mp3` is a 48-second loop synthesised by [scripts/make-background-music.py](scripts/make-background-music.py): a four-chord pad with a pentatonic bell melody, no samples and no third-party recording. Regenerate it with `python3 scripts/make-background-music.py` (needs ffmpeg and numpy).
-- **Characters.** Doraemon and the other characters, and the models derived from them, remain © Fujiko Pro / Shogakukan / TV Asahi. No rights are granted over them.
-
-There is no LICENSE file in this repository yet.
+- **Characters and music.** Doraemon and the other characters, the models derived from them, and the original background theme remain the property of their respective rights holders. No rights are granted over them.
 
 ## Disclaimer
 
